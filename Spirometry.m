@@ -41,8 +41,10 @@ pressure = loops.Pressure;
 % time for plotting
 time = (1:size(flow))*(1/Hz);
 
+%-----------------------------------------------
 % Looks like an RC curve at end of forced exp?
-% Cause? Lung relaxing after muscles release???
+% Let's fit a line to it :)
+%-----------------------------------------------
 
 % RC curve range
 start = 1190;
@@ -61,7 +63,8 @@ curveStart = start;
 curveDataEnd = stop;
 
 % set stopping point of fit at certain %age flow drop
-drop = 0.1*(flow(curveStart)-flow(curveDataEnd));
+% (things get over constrained below 3% and fit gets bad)
+drop = 0.05*(flow(curveStart)-flow(curveDataEnd));
 
 % find the index of the stopping point
 index = 0;
@@ -80,7 +83,7 @@ end
 curveStop = index;
 
 % set up matrices
-measurements = log(-flow(curveStart:curveStop));
+measurements = log(-flow(curveStart:curveStop)); %flow flipped for nicer maths
 one = ones(1, curveStop-curveStart+1);
 times = -(time(curveStart:curveStop)-time(curveStart));
 
@@ -89,14 +92,23 @@ results = [one', times']\measurements;
 
 % extract info
 startPoint = exp(results(1));
-EoR = results(2);
+EoR = results(2)
 
 % remake curve from info
-newValues = startPoint*exp(times*EoR);
+times = -(time(curveStart:curveDataEnd)-time(curveStart));
+newValues = -startPoint*exp(times*EoR); % flip flow to negative side
 
 % compare new and old
 figure(1)
 hold on
-plot(-newValues, 'm')
+plot(newValues, 'm')
 legend("original", "LSQ fit");
 hold off
+
+%----------------------------------------------
+% Is the predicted target flow constant using
+% the RC value for quiet breathing?
+% (assuming RC is good and not changed at all)
+%----------------------------------------------
+
+
