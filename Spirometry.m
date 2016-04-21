@@ -64,7 +64,7 @@ curveDataEnd = stop;
 
 % set stopping point of fit at certain %age flow drop
 % (things get over constrained below 3% and fit gets bad)
-drop = 0.05*(flow(curveStart)-flow(curveDataEnd));
+drop = 0.1*(flow(curveStart)-flow(curveDataEnd));
 
 % find the index of the stopping point
 index = 0;
@@ -102,13 +102,39 @@ newValues = -startPoint*exp(times*EoR); % flip flow to negative side
 figure(1)
 hold on
 plot(newValues, 'm')
-legend("original", "LSQ fit");
 hold off
 
-%----------------------------------------------
-% Is the predicted target flow constant using
-% the RC value for quiet breathing?
-% (assuming RC is good and not changed at all)
-%----------------------------------------------
+%-----------------------------------------
+% Saying you had some new resistance added
+% could you differentiate them?
+%-----------------------------------------
+% come up with some new EoR
+EoR_new = 3.3;
 
+% Add the new EoR to the old data to shift it
+newValues = zeros(1, (curveDataEnd-curveStart+1));
+for i = (1:length(times))
+    newValues(i) = flow(i+curveStart) * exp(times(i)*EoR_new);
+end
 
+% mess the new data up - pad the start and add some noise
+padLength = 12;
+padding = ones(1, padLength)*newValues(1);
+messyValues = awgn([padding, newValues], 18);
+
+% filter it a bit
+sigma = 4;
+size = 15;
+x = linspace(0, size / 2, size);
+gaussFilter = exp(-x .^ 2 / (2 * sigma ^ 2));
+gaussFilter = gaussFilter / sum (gaussFilter); % normalize
+filteredValues = filter(gaussFilter, 1, messyValues);
+
+% remove padding from start
+filteredValues = filteredValues(padLength:end);
+
+figure(1)
+hold on
+plot(filteredValues, 'r', 'linewidth', 2)
+legend("original", "LSQ fit", "extra R");
+hold off
