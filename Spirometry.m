@@ -2,8 +2,6 @@ pkg load communications
 
 % Written by Sarah Howe in octave
 % May not be compatible with matlab
-%
-% Playing with spirometry data
 
 % Clean up
 clc
