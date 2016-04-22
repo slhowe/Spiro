@@ -60,7 +60,7 @@ ylabel("flow")
 grid minor
 hold off
 
-% Least squares fit of curve
+% define start and end point of whole curve
 curveStart = start;
 curveDataEnd = stop;
 
@@ -92,7 +92,7 @@ times = -(time(curveStart:curveStop)-time(curveStart));
 % OMG least squares!!!
 results = [one', times']\measurements;
 
-clc % had to add this again, so annpoying =/
+clc % had to add this again, so annoying =/
 
 % extract info
 startPoint = exp(results(1));
@@ -121,13 +121,14 @@ for i = (1:length(times))
     newValues(i) = flow(i+curveStart) * exp(times(i)*EoR_new);
 end
 
-% mess the new data up - pad the start and add some noise
-padLength = 12;
+% mess the new data up - add some noise
 messyValues = awgn(newValues, 28);
 
 % remove any noise that crosses or lies on the x-axis
 filteredValues = zeros(1, length(messyValues));
-smallPositiveNumber = 1e-8;
+if messyValues(1) >= 0
+    error("First data point is not usable - try different start point")
+end
 for i = 1:length(messyValues)
     if messyValues(i) >= 0
         filteredValues(i) = filteredValues(i-1);
