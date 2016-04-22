@@ -29,7 +29,7 @@ Hz = 125;
 p_atm = 101.35; %kPa
 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-% Treating the data as from an RC-circuit
+% Treating the data as from an EoR-circuit
 %
 % Flow is current
 % Pressure is voltage
@@ -44,17 +44,17 @@ pressure = loops.Pressure;
 time = (1:size(flow))*(1/Hz);
 
 %-----------------------------------------------
-% Looks like an RC curve at end of forced exp?
+% Looks like an EoR curve at end of forced exp?
 % Let's fit a line to it :)
 %-----------------------------------------------
 
-% RC curve range
+% EoR curve range
 start = 1190;
 stop = 2000;
 
 figure(1)
 hold on
-plot(flow(start:stop), 'b', 'linewidth', 2)
+plot(flow(start:stop), 'b', 'linewidth', 3)
 xlabel("dataPoint")
 ylabel("flow")
 grid minor
@@ -66,7 +66,7 @@ curveDataEnd = stop;
 
 % set stopping point of fit at certain %age flow drop
 % (things get over constrained below 3% and fit gets bad)
-drop = 0.1*(flow(curveStart)-flow(curveDataEnd));
+drop = flow(curveDataEnd) + 0.1*(flow(curveStart)-flow(curveDataEnd));
 
 % find the index of the stopping point
 index = 0;
@@ -92,7 +92,7 @@ times = -(time(curveStart:curveStop)-time(curveStart));
 % OMG least squares!!!
 results = [one', times']\measurements;
 
-clc
+clc % had to add this again, so annpoying =/
 
 % extract info
 startPoint = exp(results(1));
@@ -105,7 +105,7 @@ newValues = -startPoint*exp(times*EoR); % flip flow to negative side
 % compare new and old
 figure(1)
 hold on
-plot(newValues, 'm')
+plot(newValues, 'm',  'linewidth', 2)
 hold off
 
 %-----------------------------------------
@@ -113,7 +113,7 @@ hold off
 % could you differentiate them?
 %-----------------------------------------
 % come up with some new EoR
-EoR_new = 3.3
+EoR_new = 20
 
 % Add the new EoR to the old data to shift it
 newValues = zeros(1, ((curveDataEnd-curveStart)+1));
@@ -138,7 +138,7 @@ end
 
 figure(1)
 hold on
-plot(filteredValues, 'r', 'linewidth', 2)
+plot(filteredValues, 'r', 'linewidth', 3)
 hold off
 
 %------------------------------------------------------
@@ -149,7 +149,7 @@ hold off
 % where A = Q(1)e^(EoR*t)
 
 % when modelled flow goes below -1, the reduced flow explodes
-% so reduced flow calculation is reduced to a smaller range 
+% so reduced flow calculation is reduced to a smaller range
 times = -(time(curveStart:curveStop)-time(curveStart));
 filteredValues = filteredValues(1:(curveStop-curveStart)+1);
 
@@ -158,10 +158,17 @@ lowRFlow = -startPoint*exp(times*EoR);
 
 % remove the known flow drop from flow
 reducedFlow = filteredValues./lowRFlow;
+
+figure(1)
+hold on
+plot(-reducedFlow, 'k', 'linewidth', 2)
+plot(-exp(times*EoR_new), 'c', 'linewidth', 2)
+hold off
+
 % set stopping point of fit at certain %age flow drop
 % (things get over constrained below 3% and fit gets bad)
 curveLength = length(reducedFlow);
-drop = 0.1*(reducedFlow(1)-reducedFlow(curveLength));
+drop = reducedFlow(curveLength) + 0.05*(reducedFlow(1)-reducedFlow(curveLength));
 
 % find the index of the stopping point for the new curve
 index = 0;
@@ -188,18 +195,20 @@ EoR_est = times'\log(reducedFlow)'
 
 figure(1)
 hold on
-plot(lowRFlow, 'g')
-plot(-reducedFlow, 'k')
-plot(-exp(times*EoR_new), 'b')
-plot(-exp(times*EoR_est), 'g')
-legend("original", "LSQ fit", "extra R", "modelled filter flow", "flow drop across added R", "actual EoR added", "EoR calculated");
+plot(-exp(times*EoR_est), 'g', 'linewidth', 2)
+legend("Flow data", ...
+        "LSQ fit", ...
+        "Extra R added in series", ...
+        "Flow drop across added R", ...
+        "Actual EoR added", ...
+        "Calculated EoR added");
 hold off
 
 EoR_Percent_error = abs((1 - EoR_est/EoR_new)) * 100
 
 %----------------------------
-% Say added R = 2 cmH20
+% Say added R = 1 cmH20
 %----------------------------
-R_added = 2;
-E = EoR_est*2
-R_actual = E/EoR
+R_addedInSeries = 1
+E = EoR_est*R_addedInSeries
+R_spirometerFilter = 1/(EoR/E)
