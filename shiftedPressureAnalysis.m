@@ -14,10 +14,11 @@ debug_on_error(1);
 
 % Load some data
 load SpirometryData.mat;
-loops = data.Loops;
-band = data.Banding;
-normal = data.Normal;
-inflated = data.Inflated;
+dataset = 1;
+loops = data(dataset).Loops;
+band = data(dataset).Banding;
+normal = data(dataset).Normal;
+inflated = data(dataset).Inflated;
 
 % sampling frequency 125 Hz
 Hz = 125;
@@ -40,5 +41,19 @@ pressure = loops.Pressure;
 % time for plotting
 time = (1:size(flow))*(1/Hz);
 
+clc
 
+figure(1)
+hold on
+plot(0.1*flow(1:2000), 'k')
+plot(-pressure(1:2000), 'm')
+grid minor
+legend("0.1 x flow", "Pressure")
+hold off
 
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% Find the phase difference between pressure and
+% flow. Capacitance (lung compliance) will cause
+% a phase shift proportional to its size
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+i = splitBreaths(pressure)
