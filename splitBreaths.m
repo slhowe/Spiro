@@ -5,7 +5,7 @@
 function indices = splitBreaths(data)
     START = 1;
     END = 2;
-    MIN_PEAK_VALUE = 0.02;
+    MIN_PEAK_VALUE = max(data)/35; % because that seems to work
     %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     % separate breaths with start of
     % inhalation at start, and end of
@@ -20,7 +20,7 @@ function indices = splitBreaths(data)
     % Take a percentage of that as test range
     % for start/end of breath
     data_points_per_breath = 125;
-    percentage_of_breath_to_agree = 0.1;
+    percentage_of_breath_to_agree = 0.03;
     test_range = ceil(data_points_per_breath * percentage_of_breath_to_agree);
 
     % Can't have more breaths than 1/2
@@ -79,11 +79,15 @@ function indices = splitBreaths(data)
     tempIndices = zeros(2, breath_count);
     position = 1;
     for pair = 1:breath_count
+        % Get the start and end of each pair
         start = breaths(START, pair);
         stop = breaths(END, pair);
+        % There has to be an end for the pair
         if(stop != 0)
             for i = start:stop
-                if data(i) > MIN_PEAK_VALUE
+                % If there is a peak point
+                if abs(data(i)) > MIN_PEAK_VALUE
+                    % Save the pair
                     tempIndices(:, position) = [start; stop];
                     position = position + 1;
                     break;
@@ -91,22 +95,6 @@ function indices = splitBreaths(data)
             end
         end
     end
-
-%    if(start_found)
-%        % End wasn't found so drop last breath
-%        indices = breaths(:, (1:breath_count-1));
-%    else
-%        indices = breaths(:, (1:breath_count));
-%    end
-
+    % Cut off trailing zeros
     indices = tempIndices(:, 1:position-1);
-
-    figure()
-    hold on
-    plot(data, '.-')
-    for value = 1:length(indices)
-        plot(indices(START, value), data(indices(START, value)), '.g')
-        plot(indices(END, value), data(indices(END, value)), '.r')
-    end
-    grid minor
 end
