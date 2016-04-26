@@ -5,7 +5,12 @@
 function indices = splitBreaths(data)
     START = 1;
     END = 2;
-    MIN_PEAK_VALUE = max(data)/35; % because that seems to work
+    MIN_PEAK_VALUE = 0;
+    if max(data(1:1000)) > 0.5 %flow data
+        MIN_PEAK_VALUE = 0.15;
+    else % pressure data
+        MIN_PEAK_VALUE = 0.015;
+    end
     %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     % separate breaths with start of
     % inhalation at start, and end of
@@ -76,6 +81,7 @@ function indices = splitBreaths(data)
     end
 
     % Remove any pairs which don't have a peak inbetween
+    % or are too close together
     tempIndices = zeros(2, breath_count);
     position = 1;
     for pair = 1:breath_count
@@ -83,7 +89,7 @@ function indices = splitBreaths(data)
         start = breaths(START, pair);
         stop = breaths(END, pair);
         % There has to be an end for the pair
-        if(stop != 0)
+        if((stop != 0) && (stop - start > test_range))
             for i = start:stop
                 % If there is a peak point
                 if abs(data(i)) > MIN_PEAK_VALUE
