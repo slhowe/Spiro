@@ -2,6 +2,11 @@
 % Written in octave 4.01
 % May not be compatible with matlab
 
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% Find the phase difference between pressure and
+% flow by splitting into half breaths.
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 % Clean up
 clc
 close all
@@ -44,10 +49,7 @@ pressure = pressure*kPa_to_cmH20;
 time = (1:size(flow))*(1/Fs);
 
 clc
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-% Find the phase difference between pressure and
-% flow by splitting into half breaths.
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 % Filter the pressure a little, because it's MESSY
 pressure = sgolayfilt(pressure);
 
@@ -137,171 +139,197 @@ end
 % Drop the trailing zero pairs
 pairs = pairs(:,1:storage_index-1);
 
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-% Find phase shift from fourier transform
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-breath_state = INHALE;
-for breath = 1:length(pairs)
+%-----------------------
+% Looking at mass of air
+%-----------------------
+for pair = 1:length(pairs)
     %range being looked at is a half breath
     if(breath_state == INHALE)
-        % start and end indices of inspiration
+        % Half breath is inspiration
         pressure_start = pressure_splits(INHALE, breath);
         pressure_end = pressure_splits(EXHALE, breath);
-        range = (pressure_start:pressure_end;
+        range = pressure_start:pressure_end;
     else
-        if(breath < length(pairs))
-            % start and end indices of inspiration
+        if(breath < length(pressure_splits))
+            % Half breath is expiration
             pressure_start = pressure_splits(EXHALE, breath);
             pressure_end = pressure_splits(INHALE, breath+1);
-            range = (pressure_splits(2,breath):pressure_splits(1,breath+1));
+            range = pressure_start:pressure_end;
         else
-            
+            % There is no end O_o
+            range = -1;
         end
     end
 
-    % Will add inverted half breath on the end to make a full waveform
-    length_range = length(range)*2;
-
-    % Frequency for plotting
-    freq = Fs*(0:length_range/2)/length_range;
-
-    % find the data point difference between flow and pressure
-    dif = (flow_splits(breath_state, pairs(2,breath))-pressure_splits(breath_state, pairs(1,breath)))
-
-    % Shift breath to frequency domain
-    % Get half the breath since mirrored
-    padding = zeros(dif, 1);
-    flow_range = range + ones(1,length(range))*dif;
-    flow_curve = [padding; flow(flow_range); -flow(flow_range)];
-    pressure_curve = [-pressure(range); pressure(range); padding];
-
-    % fourier transfrom
-    fftF = fft(flow_curve);
-    fftP = fft(pressure_curve);
-
-    % get the normalised absolute values
-    freqF = abs(fftF/length_range);
-    freqP = abs(fftP/length_range);
-
-    % take the first half, since repeated
-    freqF = freqF(1:length_range/2+1);
-    freqP = freqP(1:length_range/2+1);
-
-    % double magnitude to make up for lost points
-    freqF(2:end-1) = (2*freqF(2:end-1));
-    freqP(2:end-1) = (2*freqP(2:end-1));
-
-
-    %{
-    figure(2)
-    subplot(211)
-    plot(freq, freqF)
-    ylabel('Flow (L/s)')
-    xlabel('Frequency Hz')
-    grid minor
-    subplot(212)
-    plot(freq, freqP)
-    ylabel('Pressure (cmH20)')
-    xlabel('Frequency Hz')
-    grid minor
-    %}
-
-    % Find the fundamental frequency
-    [magnitude_flow, max_index_flow] = max(freqF);
-    [magnitude_pressure, max_index_pressure] = max(freqP);
-
-    % Find the phases
-    phase_flow = angle(fftF(max_index_flow));
-    phase_pressure = angle(fftP(max_index_pressure));
-    phase_shift = phase_pressure - phase_flow
-    phase_shift_degrees = phase_shift*180/pi
-
-    % shift the flow so it aligns with pressure
-    shifted_range = range(dif+1:end).-ones(1,length(range)-dif)*dif;
-
-    % plot the weird flipped data with the phase estimates
-    np = zeros(1, length_range);
-    np(max_index_pressure) = fftP(max_index_pressure);
-    npt = ifft(np);
-    nf = zeros(1, length_range);
-    nf(max_index_flow) = fftF(max_index_flow);
-    nft = ifft(nf);
-    figure(3)
-    hold on
-    plot([-pressure(range);pressure(range)], 'b');
-    plot(real(npt), '--b')
-    plot([flow(range)/1;-flow(range)/1], 'k');
-    plot(real(nft)/1, '--k')
-    grid minor
-    legend('pressure data', 'pressure phase', 'flow data', 'flow phase')
-    hold off
-
-    % Real part of complex reactance
-    % remove data point difference from start of flow
-    % remove data point difference from end of pressure
-    % complex_resistance = V/I
-
-
-    % find the resistance using the aligned data
-    resistance = flow(shifted_range)\-pressure(range(dif+1:end))
-
-    % resistance and reactance separated from complex value
-    %resistance = complex_resistance*cos(phase_shift)
-    reactance = resistance*tan(phase_shift)
-
-    % Get the compliance from reactance
-    signal_freq = Fs/length_range;
-    elastance = -reactance*(2*pi*signal_freq)
-
-    e(breath) = elastance;
-    r(breath) = resistance;
-
-    if(breath_state == INHALE)
-        breath_state = EXHALE
-    else
-        breath_state = INHALE
-    end
-
-    figure(5);
-    hold on
-    plot(pressure_curve, '.-')
-    plot(flow_curve, '.-r')
-    title(breath)
-    legend('pressure','flow')
-    grid minor
-    hold off
-
-    pause()
-
-    close(5)
-    close(3)
+   
 end
 
-figure(6)
-hold on
-plot(1:breath, -e, 'ob')
-plot(1:breath, r, 'xr')
-xlabel('breath')
-ylabel('magnitude')
-legend('elast', 'resist')
-grid minor
-hold off
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% Find phase shift from fourier transform
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+% State of first breath
+breath = 1;
+breath_state = INHALE;
+
+% containers for results
+e = zeros(1, length(pairs));
+r = zeros(1, length(pairs));
+eIn = ones(1, length(pairs))*NaN;
+eOut = ones(1, length(pairs))*NaN;
+
+for pair = 1:length(pairs)
+    %range being looked at is a half breath
+    if(breath_state == INHALE)
+        % Half breath is inspiration
+        pressure_start = pressure_splits(INHALE, breath);
+        pressure_end = pressure_splits(EXHALE, breath);
+        range = pressure_start:pressure_end;
+    else
+        if(breath < length(pressure_splits))
+            % Half breath is expiration
+            pressure_start = pressure_splits(EXHALE, breath);
+            pressure_end = pressure_splits(INHALE, breath+1);
+            range = pressure_start:pressure_end;
+        else
+            % There is no end O_o
+            range = -1;
+        end
+    end
+
+    if(range != -1)
+        % Will add inverted half breath on the end to make a full waveform
+        length_range = length(range)*2;
+
+        % Frequency for plotting
+        freq = Fs*(0:length_range/2)/length_range;
+
+        % find the data point difference between flow and pressure
+        dif = (flow_splits(breath_state, pairs(2,breath))-pressure_splits(breath_state, pairs(1,breath)))
+
+        % Adding zero padding to start and end of curves so they are correctly aligned
+        padding = zeros(dif, 1);
+        flow_range = range + ones(1,length(range))*dif;
+        flow_curve = [padding; flow(flow_range); -flow(flow_range)];
+        pressure_curve = [-pressure(range); pressure(range); padding];
+
+        % fourier transfrom
+        fftF = fft(flow_curve);
+        fftP = fft(pressure_curve);
+
+        % get the normalised absolute values
+        freqF = abs(fftF/length_range);
+        freqP = abs(fftP/length_range);
+
+        % take the first half, since repeated
+        freqF = freqF(1:length_range/2+1);
+        freqP = freqP(1:length_range/2+1);
+
+        % double magnitude to make up for lost points
+        freqF(2:end-1) = (2*freqF(2:end-1));
+        freqP(2:end-1) = (2*freqP(2:end-1));
+
+        %{
+        figure(2)
+        subplot(211)
+        plot(freq, freqF)
+        ylabel('Flow (L/s)')
+        xlabel('Frequency Hz')
+        grid minor
+        subplot(212)
+        plot(freq, freqP)
+        ylabel('Pressure (cmH20)')
+        xlabel('Frequency Hz')
+        grid minor
+        %}
+
+        % Find the fundamental frequency
+        [magnitude_flow, max_index_flow] = max(freqF);
+        [magnitude_pressure, max_index_pressure] = max(freqP);
+
+        % Find the phases
+        phase_flow = angle(fftF(max_index_flow));
+        phase_pressure = angle(fftP(max_index_pressure));
+        phase_shift = phase_pressure - phase_flow
+        phase_shift_degrees = phase_shift*180/pi
+
+        % shift the flow so it aligns with pressure
+        shifted_range = range(dif+1:end);
+
+        %{
+        % plot the weird flipped data with the phase estimates
+        np = zeros(1, length_range);
+        np(max_index_pressure) = fftP(max_index_pressure);
+        npt = ifft(np);
+        nf = zeros(1, length_range);
+        nf(max_index_flow) = fftF(max_index_flow);
+        nft = ifft(nf);
+        figure(3)
+        hold on
+        plot([-pressure(range);pressure(range)], 'b');
+        plot(real(npt), '--b')
+        plot([flow(range)/1;-flow(range)/1], 'k');
+        plot(real(nft)/1, '--k')
+        grid minor
+        legend('pressure data', 'pressure phase', 'flow data', 'flow phase')
+        hold off
+        %}
+
+        % find the resistance using the aligned data
+        resistance = flow(shifted_range)\-pressure(range(1:end-dif))
 
 %{
-r = 1:1000;
-p = flow(r)*resistance;
-P = fft(p);
-shift_as_ratio = phase_shift/(2*pi);
-f=linspace(0, Fs, r);
-P = P.*exp(-j*2*pi*f*shift_as_ratio);
-calcP = ifft(P);
+        figure(8)
+        hold on
+        plot(flow(shifted_range), '.-r')
+        plot(-pressure(range(1:end-dif)), '.-b')
+        grid minor
+        hold off
+%}
 
-figure()
+        % resistance and reactance separated from complex value
+        %resistance = complex_resistance*cos(phase_shift)
+        reactance = resistance*tan(phase_shift)
+
+        % Get the compliance from reactance
+        signal_freq = Fs/length_range;
+        elastance = reactance*(2*pi*signal_freq)
+
+        e(pair) = elastance;
+        r(pair) = resistance;
+
+        if(breath_state == INHALE)
+            breath_state = EXHALE;
+            eIn(pair) = elastance;
+        else
+            breath = breath + 1;
+            breath_state = INHALE;
+            eOut(pair) = elastance;
+        end
+        %{
+        figure(4)
+        hold on
+        plot(pressure_curve, '.-')
+        plot(flow_curve, '.-r')
+        title(pair)
+        legend('pressure','flow')
+        grid minor
+        hold off
+        %}
+   end
+%    pause()
+
+%    close(4)
+%    close(8)
+end
+
+figure(5)
 hold on
-plot(pressure(r), 'b')
-plot(real(calcP), 'r')
-plot(flow(r)*resistance, 'k', 'linewidth', 3)
-legend('old pressure', 'calculated pressure', 'flow')
+%plot(1:pair, e, 'ob')
+plot(1:pair, r, 'xr')
+plot(1:pair, eIn, 'oc')
+plot(1:pair, eOut, 'ob')
+xlabel('half-breath')
+ylabel('magnitude')
+legend('resist', 'eIn', 'eOut')
 grid minor
 hold off
-%}
