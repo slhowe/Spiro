@@ -127,9 +127,9 @@ def split_breaths(data, peak_height=0.1):
 
 def calc_flow_delay(pressure, flow, Fs=125, plot=False):
     # Filter the data heaps and flip pressure
-    flow = semi_gauss_lp_filter(flow, 125, 0.7)
+    flow = semi_gauss_lp_filter(flow, 125, 0.5)
     flow[0] = 0
-    pressure = semi_gauss_lp_filter(pressure, 125, 0.7)
+    pressure = semi_gauss_lp_filter(pressure, 125, 0.5)
     pressure = [-p for p in pressure]
     pressure[0] = 0
 
@@ -142,10 +142,26 @@ def calc_flow_delay(pressure, flow, Fs=125, plot=False):
     # a breath has been skipped so don't record
     length = min(len(p_splits[1]), len(splits[1]))
     diff  = []
-    for i in range(length):
-        difference = (splits[1][i] - p_splits[1][i])
+    p_offset = 0
+    f_offset = 0
+    i = 0
+    while (i + max(p_offset, f_offset)) < length:
+        difference = (splits[1][i + f_offset] - p_splits[1][i + p_offset])
+        if(plot):
+            print(difference)
         if(abs(difference) < Fs):
             diff.append(difference)
+        elif(difference > Fs):
+            # Skip pressure forward to catch up
+            if(plot):
+                print('missed flow')
+            p_offset += 1
+        else:
+            # Skip flow forward to catch up
+            if(plot):
+                print('missed pressure')
+            f_offset += 1
+        i += 1
 
     def mean(item_list):
         num_items = (len(item_list))

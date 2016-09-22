@@ -105,14 +105,11 @@ if(saving):
             line = [pressures[i], flows[i]]
             csvwriter.writerow(line)
 
-gp = []
-gf = []
-gf.append(100)
-gf.append(90.5)
-gf.append(88)
-gp.append(340)
-gp.append(280)
-gp.append(320)
+gp = [112, 32, 24, 9, 22, 26, 50, 54, 174, 203, 163, 105, 26, 116, 184, 48, 60]
+gf = [45.9, 21.6, 7.8, 2.8, 11, 17.2, 28.2, 29.6, 59.5, 67.6, 54.9, 42.71, 18.6, 44.9, 63, 30.3, 32]
+
+gp2 = [11, 12, 21, 42, 58, 59, 82, 13, 22, 50, 75, 83, 55, 36, 12, 16, 21, 29, 41, 61, 49, 72, 90, 87, 80, 45, 88, 32, 78, 80]
+gf2 = [11.45, 24.2, 29.6, 39.2, 45.8, 51, 56, 16, 27.4, 39.5, 49.9, 56.2, 41.1, 34.2, 15.3, 22.7, 26.6, 31, 36.5, 43, 38.8, 47.7, 67.6, 63.7, 51.5, 37.3, 67, 35.5, 59.5, 78]
 
 # Find an exponential fit to data
 pressures_sqrd = [float(p)**2 for p in pressures]
@@ -169,28 +166,35 @@ for i in range(len(other_files)):
                     ])
         plt.show()
 
-
 # make line
 print(res)
-new_pressures = range(300)
+new_pressures = range(7000)
 new_pressures = [p for p in new_pressures]
 line = [(p**2)*res[0][0] + p*res[1][0] for p in new_pressures]
 line2 = [(p)*res2[0][0] for p in new_pressures]
 line3 = [(p**2)*res3[0][0] for p in new_pressures]
 
+res_pts = [pressures[i]/float(flows[i])*0.6 for i in range(len(pressures))]
+
 plt.plot(pressures, flows, 'bo')
 plt.plot(other_pressures, other_flows, 'ro')
 plt.plot(gp, gf, 'yo')
+plt.plot(gp2, gf2, 'co')
 plt.plot(new_pressures, line, 'g')
+plt.plot(pressures, res_pts, 'rx')
 #plt.plot(new_pressures, line2, 'r')
 #plt.plot(new_pressures, line3, 'k')
 plt.legend([
-     'data points used',
-     'data points not used',
-     'flow guess (top data cutoff)',
+     'Flow sensor only calibration',
+     'Data points not used',
+     'Flow and Pressure sensor calibration points',
+     'Flow and Pressure sensor calibration points 2',
      'Q = aP^2 + bP',
 #     'Q = cP',
 #     'Q = dP^2'
+     'resistance points from data',
     ])
 plt.grid()
+plt.xlabel('Pressure')
+plt.ylabel('Flow')
 plt.show()

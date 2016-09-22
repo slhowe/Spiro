@@ -24,7 +24,7 @@ class DataStore:
     def store_data(self, filename):
         ''' Store flow and pressure data from
             csv file in data struct'''
-        with open(filename, 'rb') as csvfile:
+        with open(filename, 'r') as csvfile:
            reader = csv.reader(csvfile, delimiter = ',')
            # skip header line
            header = reader.next()

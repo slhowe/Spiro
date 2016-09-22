@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Import my extensions
+import sys
+sys.path.insert(0, '/home/sarah/Documents/Spirometry/python/extensions')
+
 import csv
 import dill
 import matplotlib.pyplot as plt
@@ -8,9 +12,12 @@ import symbolicPressureEquation as spe
 from sympy import *
 from sympy.abc import s,t
 from numpy import isnan
+from calculus import integral
+from numpy import array
+from numpy.linalg import lstsq
 
 path = '/home/sarah/Documents/Spirometry/data/'
-plot_path = '/home/sarah/Documents/Spirometry/lungPlots/'
+plot_path = '/home/sarah/Documents/Spirometry/images/exponential_fit'
 files = ['Loops_1.csv', 'Loops_3.csv']
 
 # Create data classes
@@ -53,32 +60,6 @@ for dataset in pe.Data:
             dataset.flow.append(-1.0*flow)
     file_index += 1
 
-## Generate symbolic equations
-#y = Function("y")(t)
-#u = Function("u")(t)
-#
-#A1 = Symbol("A1")
-#A2 = Symbol("A2")
-#P1 = Symbol("P1")
-#P2 = Symbol("P2")
-#
-## x is the time that the curves cross
-#x = Symbol("x")
-#
-## Substitute into EoM_y here and get values
-#y_of_t_minus_2= Symbol("y2t")
-#y_of_t_minus_1 = Symbol("y1t")
-#y_of_t = Symbol("yt")
-#y_of_t_plus_1= Symbol("yt1")
-#u_of_t = Symbol("ut")
-#dt = Symbol("dt")
-#
-#print("Loading pre-calculated equations")
-#[y_equation, u_equation] = dill.load(open('symbolicEquations.pk'))
-#
-#print(y_equation)
-#print(u_equation)
-
 def generate_curve(dataset, start, end, offset, test, index):
     Fs = float(dataset.SAMPLING_FREQUENCY)
     times = [x/Fs for x in range((start - offset),(end - offset))]
@@ -86,6 +67,9 @@ def generate_curve(dataset, start, end, offset, test, index):
     decay = dataset.decay[test][index]
     curve = [start_point*exp(times[x]*decay) for x in range(0, (end - start))]
     return curve
+
+def remake_input_pressure():
+    pass
 
 # calculate decays and offsets for data ranges
 test = 0
@@ -115,7 +99,8 @@ for dataset in pe.Data:
         dataset.decay[test][1] = parameters[1]
         print(line_fit_start)
 
-        # Remake curves
+
+        #~~~~~~ Remake curves ~~~~~~
         H_curve = generate_curve(dataset, curve_start, curve_end, curve_start, test, 0)
         L_curve = generate_curve(dataset, curve_start, curve_end, line_fit_start, test, 1)
 
@@ -126,37 +111,72 @@ for dataset in pe.Data:
                 dataset.crossing[test] = i
                 break
         if (isnan(dataset.crossing[test])):
-            error('exponential fit lines never intersect')
+            print('exponential fit lines never intersect')
 
-        # plot example
+
+        #~~~~~~~ remake the input pressure ~~~~~~
+        flw = dataset.flow[curve_start:curve_end]
+        vol = integral(flw, 125)
+        vol = [vol[-1]-v for v in vol]
+
+        p_out = dataset.pressure[curve_start:curve_end]
+        p_edit = [0]*len(p_out)
+
+        # make array of tau
+        for i in range(len(p_out)):
+            if(i < dataset.crossing):
+                p_edit[i] = -p_out[i] * dataset.decay[test][0][0]
+            else:
+                p_edit[i] = -p_out[i] * dataset.decay[test][1][0]
+
+        p_in = integral(p_edit, 125)
+        p_in_sqr = [p_in[-1] for i in p_in]
+
+        dependent = array([p_in_sqr])
+        independent = array([vol, flw])
+        res = lstsq(independent.T, dependent.T)
+
+        print("Lst resid: {}".format(res[1]))
+        Em = res[0][0][0]
+        Rm = res[0][1][0]
+        print('E: {}'.format(Em))
+        print('R: {}'.format(Rm))
+        print('E/R: {}'.format(Em/Rm))
+        line = [Em*vol[i] + Rm*flw[i] for i in range(len(flw))]
+
+
+        #~~~~~~ plot example ~~~~~~
         plotting = True
         if(plotting):
             times = [x/Fs for x in range(0,(curve_end - curve_start))]
 
+            f, (ax1, ax2) = plt.subplots(2, sharex=True)
+
             decay_info = 'Decay Rates\nHigh: {0:.2f}'.format(dataset.decay[test][0][0]) + ' \nLow: {0:.2f}'.format(dataset.decay[test][1][0])
             if dataset.finding_flow:
                 curve = dataset.flow[curve_start:curve_end]
-                plt.axis([-0.01, 4, -0.01, 6])
-                plt.text(3.2, 3.9, decay_info, fontsize=12)
-                #crossing_info = 'Exp crossing: {0:.1f} % drop'.format((1-curve[dataset.crossing[test]]/curve[0])*100)
-                #plt.text(2.2, 2.9, crossing_info, fontsize=12)
-                plt.ylabel("Flow (L/s)")
+                ax1.text(3.2, 3.9, decay_info, fontsize=12)
+                ax1.set_ylabel("Flow (L/s)")
                 fig_name = '{}Flow_{}_{}.png'.format(plot_path, dataset.name, test+1)
             else:
                 curve = dataset.pressure[curve_start:curve_end]
-                plt.axis([-0.01, 4, -0.01, 0.75])
-                plt.text(3.2, 0.49, decay_info, fontsize=12)
-                #crossing_info = 'Exp crossing: {0:.1f} % drop'.format((1-curve[dataset.crossing[test]]/curve[0])*100)
-                #plt.text(2.2, 0.39, crossing_info, fontsize=12)
-                plt.ylabel("Pressure (cmH20)")
+                ax1.text(3.2, 0.49, decay_info, fontsize=12)
+                ax1.set_ylabel("Pressure (kPa)")
                 fig_name = '{}Pressure_{}_{}.png'.format(plot_path, dataset.name, test+1)
 
-            plt.plot(times, curve, 'b', times, H_curve, 'r', times, L_curve, 'g')
-            plt.legend(['Measured Data','Exponential fit (High)','Exponential fit (Low)'])
-            plt.xlabel('Time (s)')
-            plt.grid(True)
+            ax1.plot(times, curve, 'b', times, H_curve, 'r', times, L_curve, 'g')
+            ax1.legend(['Measured Data','Exponential fit (High)','Exponential fit (Low)'])
+            ax1.set_xlabel('Time (s)')
+            ax1.grid(True)
 
-            saving = True
+            ax2.plot(times, p_in_sqr, 'r')
+            ax2.plot(times, p_out, 'b')
+            ax2.plot(times, line, 'm')
+            ax2.plot(times, p_in, 'y')
+            ax2.legend(['Input pressure', 'Output pressure', 'Modelled input'])
+            ax2.grid()
+
+            saving = False
             if saving:
                 print(fig_name)
                 plt.savefig(fig_name)
