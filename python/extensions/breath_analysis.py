@@ -1,7 +1,7 @@
 #! /bin/bash
 
 from calculus import integral
-from filters import semi_gauss_lp_filter
+from filters import semi_gauss_lp_filter, hamming
 import matplotlib.pyplot as plt
 from math import pi
 from collections import Counter
@@ -119,6 +119,9 @@ def split_breaths(data, peak_height=0.1):
     startpoints = []
     midpoints = []
     endpoints = []
+
+    # Filter the shit out of the signal
+    data = hamming(data, 5, 125, 10, plot=True)
 
     # Find the crossing points and check they are good
     find_crossings_and_midpoints(data, startpoints, midpoints, endpoints)
