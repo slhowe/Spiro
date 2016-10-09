@@ -114,24 +114,42 @@ def semi_gauss_lp_filter(data, Fs, sigma, plot=False):
     except AttributeError:
         pass
 
-def hamming(data, fc, fs, bw, plot=False):
-    # Length of the filter.
-    data_length = len(data)
+    return filtered_data
 
+def hamming(data, fc, fs, bw, plot=False):
+    '''
+    A LP hamming filter
+    @input data, cutoff frequency, sampling frequency, bandwidth, optional: plot
+    '''
+    # pad end of signal
+    pad_length = len(data)/10
+    signal = data + [0]*pad_length
+
+    # Length of the filter.
+    data_length = len(signal)
+
+    # Normalise the sampling frequency to range 0 <-> 0.5
     fc = fc/float(fs)/2.0
+
+    # Normalise bandwidth to range 0<->1
+    # Bandwidth used to set filter length
     tw = bw/float(fs)
     N = int(np.ceil((4/tw)))
 
+    # Odd length filter is most widely usable
+    # Will set filter length to odd if it is even
     if not N%2: N+=1
-    #n = np.arrange(N)
 
     # Calculates points in time domain hamming window
     def hamming_value(n, N):
         value = 0.54 - 0.46*cos(2*pi*n / float(N-1))
         return(value)
 
+    # Initialise hamming and truncated sinc function storage
     hamming = [0]*N
     trunc_sinc =[0]*N
+
+    # Make hamming curve and truncated sinc function
     for n in range(N):
         hamming[n] = hamming_value(n, N)
         if(n - (N-1)/2.0 == 0):
@@ -140,18 +158,25 @@ def hamming(data, fc, fs, bw, plot=False):
             i = (n - (N-1)/2.0)
             trunc_sinc[n] = sin(2 * np.pi * fc * i)/(i)
 
+    # Make the time domain window filter and normalise for sum of filter co-eff.
     window = [trunc_sinc[i] * hamming[i] for i in range(N)]
     window = window/np.sum(window)
 
-
+    # Convert filter and signal to frequency domain
     fft_window = fft(window, data_length)
-    fft_signal = fft(data)
+    fft_signal = fft(signal)
+
+    # Filter the signal and convert to time domain
     fft_filtered = [fft_window[i] * fft_signal[i] for i in range(data_length)]
     filtered_signal= ifft(fft_filtered)
 
+    # Filtering causes phase shift
+    # Shift the signal back in time
+    # and remove padding from end
     samples_shift = int((N-1)/2)
-    filtered_signal = filtered_signal[samples_shift:len(filtered_signal)]
+    filtered_signal = filtered_signal[samples_shift : len(data) + samples_shift]
 
+    # optional plotting
     if(plot):
         plt.plot(window, 'r')
         plt.show()
@@ -159,10 +184,7 @@ def hamming(data, fc, fs, bw, plot=False):
         plt.plot(np.abs(fft(window)))
         plt.show()
 
-        plt.plot(freq, mag, 'm')
+        plt.plot(data)
+        plt.plot(filtered_signal)
         plt.show()
-
-        plt.plot(freq, response, 'r')
-        plt.show()
-
     return(filtered_signal)

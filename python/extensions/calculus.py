@@ -6,7 +6,7 @@ def derivative(data, Fs):
     '''Calc derivative of list using difference'''
     dir_list = [0]*(len(data)-1)
     for i in range(1, len(data)):
-        dir_list[i-1] = (data[i] - data[i-1])/Fs
+        dir_list[i-1] = (data[i] - data[i-1])*Fs
     return dir_list
 
 def integral(data, Fs):
