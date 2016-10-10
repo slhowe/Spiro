@@ -84,6 +84,21 @@ def inflection_points(data, Fs, plot=False):
     # Chop off unused indices
     crossings = crossings[:num_crossings]
 
+    # Check for peaks
+    # Don't care about small noise, only big changes
+    MIN_PEAK = 50
+    final_crossings = [0]*num_crossings
+    index = 0
+
+    # For every crossing found
+    for i in range(num_crossings - 1):
+        # Look for large peak in between this and next crossing
+        for j in range(crossings[i], crossings[i+1]):
+            # If found a peak, record crossing
+            if(abs(derder[j]) >= MIN_PEAK):
+                final_crossings[index] = crossings[i]
+                index += 1
+
     if(plot):
         # Plot data, derivative and second derivative
         # Second derivative plot also has inflection points
@@ -98,12 +113,13 @@ def inflection_points(data, Fs, plot=False):
 
         axc.plot(derder, 'd-')
         axc.plot(crossings, [derder[c] for c in crossings], 'rd')
+        axc.plot(final_crossings, [derder[c] for c in final_crossings], 'yd')
         axc.set_ylabel("Second Derivative")
         axc.grid()
 
         plt.show()
 
-    return crossings
+    return final_crossings
 
 # Iterate through breaths
 for breath in range(89,90): # good 84-134
@@ -178,6 +194,7 @@ for breath in range(89,90): # good 84-134
     # Estimate the pressure from flow
     # Try:
     #   integral(flow) = k*pressure + p0
+    #   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # over small ranges between inflection points
     # fitting linear and exponential curves between
     # sections and taking best fit. Note: exponential
@@ -215,8 +232,8 @@ for breath in range(89,90): # good 84-134
     print('E/R_est: {}'.format(E_est/R_est))
     remade_pres_est = [E_est*volume[i] + R_est*flow[i] for i in range(len(flow))]
     flow_est = derivative(int_PR, 50)
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # plot stuff
     f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
     ax1.plot(pressure_drop, 'bx-')
@@ -224,14 +241,17 @@ for breath in range(89,90): # good 84-134
     ax1.plot(range(start_insp,end_insp), estimate, 'o-', color='#b0e0e6')
     ax1.plot(remade_pres, 'kx-')
     ax1.plot(remade_pres_est, 'k-')
+
     ax2.plot(flow, 'mx-')
     ax2.plot(range(start_insp,end_insp-1), flow_est, 'r*-')
     ax2.plot(range(start_insp,end_insp), PR, 'ro-')
     ax2.plot(range(start_insp,end_insp), flw, '^-', color='#ffddf4')
+
     ax3.plot(volume,'yx-')
     ax3.plot(range(start_insp,end_insp),
             [p+vol_sized_pres[start_insp] for p in int_PR],'x-', color='#978248')
     ax3.plot(vol_sized_pres,'x-', color = '#f08080')
+
     ax1.grid()
     ax2.grid()
     ax3.grid()
