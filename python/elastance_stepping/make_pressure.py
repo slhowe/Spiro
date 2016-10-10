@@ -38,6 +38,73 @@ plot=True
 mat = io.loadmat(filename)
 full_data = mat['ManualDetection']
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+# function definitions
+def inflection_points(data, Fs, plot=False):
+    """
+    Inflection points are at zero crossings
+    of second derivative.
+
+    Returns indices of crossings, with Indices at the
+    point before the crossing occurs
+
+    Note: last 2 dp are missing from second derivative.
+    Any inflections in the last points will be missed.
+    """
+    # Find second derivative of data
+    der = derivative(data, Fs)
+    derder = derivative(der, Fs)
+
+    def signum(num):
+        """
+        Returns sign of a number
+        -1 if negative
+        1 if positive
+        0 if zero
+        """
+        if(num < 0): return -1;
+        elif(num > 0): return 1;
+        else: return 0;
+
+    # Find crossings
+    crossings = [0]*len(derder)
+    num_crossings = 0
+    i = 0
+
+    while(i < len(derder) - 1):
+        # If the sign of the number changes
+        if(signum(derder[i]) != signum(derder[i+1])):
+            # Record current index
+            # Increment number of crossings found
+            crossings[num_crossings] = i
+            num_crossings += 1
+        # increment counter
+        i += 1
+
+    # Chop off unused indices
+    crossings = crossings[:num_crossings]
+
+    if(plot):
+        # Plot data, derivative and second derivative
+        # Second derivative plot also has inflection points
+        l, (axa, axb, axc) = plt.subplots(3, sharex=True)
+        axa.plot(data, 'd-')
+        axa.set_ylabel("Data")
+        axa.grid()
+
+        axb.plot(der, 'd-')
+        axb.set_ylabel("Derivative")
+        axb.grid()
+
+        axc.plot(derder, 'd-')
+        axc.plot(crossings, [derder[c] for c in crossings], 'rd')
+        axc.set_ylabel("Second Derivative")
+        axc.grid()
+
+        plt.show()
+
+    return crossings
+
 # Iterate through breaths
 for breath in range(89,90): # good 84-134
 
@@ -59,7 +126,7 @@ for breath in range(89,90): # good 84-134
     print(type(flow))
     volume = integral(flow, 50)
 
-    # only care about inspiration
+    # only care about inspiration at the moment
     start_insp = 0
     end_insp = 0
     max_flow = 0
@@ -75,10 +142,10 @@ for breath in range(89,90): # good 84-134
 
     end_insp = start_insp
     start_insp = 0
-
     print('start_insp: {}'.format(start_insp))
     print('end_insp: {}'.format(end_insp))
 
+    # Get peep
     peep_data = pressure[-30:-20]
     peep = sum(peep_data)/len(peep_data)
     print('peep: {}'.format(peep))
@@ -89,7 +156,8 @@ for breath in range(89,90): # good 84-134
     pres = [p - peep for p in pres]
     vol = volume[start_insp:end_insp]
 
-    # Find R and E
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Find R and E directly from pressure
     dependent = array([pres])
     independent = array([flw, vol])
     res = lstsq(independent.T, dependent.T)
@@ -102,10 +170,25 @@ for breath in range(89,90): # good 84-134
     pressure_drop = [p - peep for p in pressure]
     remade_pres = [E*volume[i] + R*flow[i] for i in range(len(flow))]
     vol_sized_pres = [p/pres[-1]*vol[-1] for p in remade_pres]
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+    # Integral method for finding pressure from flow #
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+    # Estimate the pressure from flow
+    # Try:
+    #   integral(flow) = k*pressure + p0
+    # over small ranges between inflection points
+    # fitting linear and exponential curves between
+    # sections and taking best fit. Note: exponential
+    # flow fit gives results from constant pressure.
+
+    inflections = inflection_points(flow, Fs=50, plot=True)
     PR = [q*1 for q in flw]
     int_PR = integral(PR, 50)
 
+    # Fitting normalised estimate to known flow data
+    # To see how it compares to direct calculation
     ones = [1]*len(flw)
     dependent = array([pres])
     independent = array([int_PR])#, ones])
@@ -117,15 +200,7 @@ for breath in range(89,90): # good 84-134
     estimate = [(magnitude*ipr) for ipr in int_PR]
     estimate2 = [ipr for ipr in int_PR]
 
-    # inflection points at the double derivative zero crossings
-    dq = derivative(flow, 50)
-    ddq = derivative(dq, 50)
-    l, (axa, axb, axc) = plt.subplots(3, sharex=True)
-    axa.plot(flow, 'd-')
-    axb.plot(dq, 'd-')
-    axc.plot(ddq, 'd-')
-
-    # Find R and E
+        # Find R and E
     dependent = array([estimate])
     independent = array([flw, vol])
     res = lstsq(independent.T, dependent.T)
@@ -137,6 +212,7 @@ for breath in range(89,90): # good 84-134
     print('E/R_est: {}'.format(E_est/R_est))
     remade_pres_est = [E_est*volume[i] + R_est*flow[i] for i in range(len(flow))]
     flow_est = derivative(int_PR, 50)
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # plot stuff
     f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
