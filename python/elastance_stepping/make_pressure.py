@@ -183,7 +183,10 @@ for breath in range(89,90): # good 84-134
     # sections and taking best fit. Note: exponential
     # flow fit gives results from constant pressure.
 
+    # Find inflection points
     inflections = inflection_points(flow, Fs=50, plot=True)
+
+    # Integrate data between inflection points
     PR = [q*1 for q in flw]
     int_PR = integral(PR, 50)
 
@@ -233,62 +236,3 @@ for breath in range(89,90): # good 84-134
     ax2.grid()
     ax3.grid()
     plt.show()
-
-#    # Make a pressure curve
-#    # Here a filtered square wave
-#    pres = [(0.004*t)+1 for t in range(data.insp_length)]
-#    offset = 6
-#    pres[0:offset] = [0]*offset
-#    pres[-offset:] = [0]*offset
-#    pres[-2*offset:-offset] = [0.25]*offset
-#    pres = hamming(pres, 2, 125, 50, plot=False)
-#
-#    # Make elastance shape
-#    # Set any 0 volume measurement to be very small
-#    for i in range(data.insp_length):
-#        if(data.insp_volume[i] <= 0):
-#            data.insp_volume[i] = 1e-5
-#
-#    # E = P/V
-#    elas = [pres[i]/data.insp_volume[i]
-#            for i in range(data.insp_length)]
-#    elas = [e*0.001 for e in elas]
-#
-#    # Plot it
-#    plt.plot(data.insp_flow)
-#    plt.plot(data.insp_volume)
-#    plt.plot(pres)
-#    plt.plot(elas)
-#    plt.show()
-#
-#    # Just try it out
-#    dependent = array([pres])
-#    independent = array([data.insp_volume, data.insp_flow])
-#    res = lstsq(independent.T, dependent.T)
-#
-#    E = res[0][0][0]
-#    R = res[0][1][0]
-#    print('E = {}'.format(E))
-#    print('R = {}'.format(R))
-#    print('Residuals = {}'.format(res[1][0]))
-#
-#    # Remake pressure
-#    sim_pres = [e*data.insp_volume[i] + R*data.insp_flow[i]
-#                for i in range(data.insp_length)]
-#
-#    # Make varying elastance
-#    Edrs = [(pres[i] - R*data.insp_flow[i])/data.insp_volume[i]
-#            for i in range(data.insp_length)]
-#
-#    # Remake pressure
-#    sim_pres_dyn = [Edrs[i]*data.insp_volume[i] + R*data.insp_flow[i]
-#                for i in range(data.insp_length)]
-#
-#    plt.plot(pres)
-#    plt.plot(sim_pres)
-#    plt.plot(Edrs)
-#    plt.plot(sim_pres_dyn)
-#    plt.ylim([-5,5])
-#    plt.grid()
-#    plt.show()
-
