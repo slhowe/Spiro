@@ -73,10 +73,16 @@ def inflection_points(data, Fs, plot=False):
 
     while(i < len(derder) - 1):
         # If the sign of the number changes
-        if(signum(derder[i]) != signum(derder[i+1])):
-            # Record current index
+        sign_derder = signum(derder[i])
+        # Record current index
+        if(sign_derder != signum(derder[i+1])):
+            # When going from negative to positive
+            # The inflection is one point forward
+            if(sign_derder == -1):
+                crossings[num_crossings] = i - 1
+            else:
+                crossings[num_crossings] = i
             # Increment number of crossings found
-            crossings[num_crossings] = i
             num_crossings += 1
         # increment counter
         i += 1
@@ -92,18 +98,29 @@ def inflection_points(data, Fs, plot=False):
 
     # For every crossing found
     for i in range(num_crossings - 1):
+        peak_not_found = True
         # Look for large peak in between this and next crossing
         for j in range(crossings[i], crossings[i+1]):
             # If found a peak, record crossing
-            if(abs(derder[j]) >= MIN_PEAK):
+            if(abs(derder[j]) >= MIN_PEAK and peak_not_found):
                 final_crossings[index] = crossings[i]
+                peak_not_found = False
                 index += 1
+
+    # Last inflection at end of data
+    final_crossings[index] = len(data) - 1
+    index += 1
+
+    # Chop off unused indices
+    final_crossings = final_crossings[0:index]
 
     if(plot):
         # Plot data, derivative and second derivative
-        # Second derivative plot also has inflection points
+        # Data plot shows inflection points
         l, (axa, axb, axc) = plt.subplots(3, sharex=True)
         axa.plot(data, 'd-')
+        axa.plot(crossings, [data[c] for c in crossings], 'rd')
+        axa.plot(final_crossings, [data[c] for c in final_crossings], 'yd')
         axa.set_ylabel("Data")
         axa.grid()
 
@@ -112,8 +129,6 @@ def inflection_points(data, Fs, plot=False):
         axb.grid()
 
         axc.plot(derder, 'd-')
-        axc.plot(crossings, [derder[c] for c in crossings], 'rd')
-        axc.plot(final_crossings, [derder[c] for c in final_crossings], 'yd')
         axc.set_ylabel("Second Derivative")
         axc.grid()
 
@@ -124,7 +139,7 @@ def inflection_points(data, Fs, plot=False):
 # Iterate through breaths
 for breath in range(89,90): # good 84-134
 
-    print('\n {}'.format(breath))
+    print('\nBreath number {}'.format(breath))
     # Extract breath data
     pressure = full_data['Pressure'][0][breath]
     flow = full_data['Flow'][0][breath]
@@ -139,25 +154,26 @@ for breath in range(89,90): # good 84-134
     # filter
     flow = hamming(flow, 20, 50, 10)
     flow = real(flow).tolist()
-    print(type(flow))
     volume = integral(flow, 50)
 
     # only care about inspiration at the moment
     start_insp = 0
     end_insp = 0
-    max_flow = 0
+    start_not_found = True
     i = 0
-    while i < (len(flow)-5):
-        if(flow[i] > max_flow):
-            start_insp = i + 2
-            max_flow = flow[i]
-        if(flow[i]<= 0 and pressure[i+10]<(pressure[i]-5)):
-            end_insp = i - 5
+    while i < (len(flow)):
+        # Find first positive index for start of insp
+        if(flow[i] > 0 and start_not_found):
+            start_insp = i
+            start_not_found = False
+
+        # Find negative flow for end of insp
+        if(flow[i]<= 0):
+            end_insp = i - 1
             i = len(flow)
+
         i += 1
 
-    end_insp = start_insp
-    start_insp = 0
     print('start_insp: {}'.format(start_insp))
     print('end_insp: {}'.format(end_insp))
 
@@ -200,12 +216,61 @@ for breath in range(89,90): # good 84-134
     # sections and taking best fit. Note: exponential
     # flow fit gives results from constant pressure.
 
+    Pressure_estimation = [0]*len(pres)
+
     # Find inflection points
     inflections = inflection_points(flow, Fs=50, plot=True)
 
-    # Integrate data between inflection points
-    PR = [q*1 for q in flw]
-    int_PR = integral(PR, 50)
+    # Go through flow data
+    # Decide on shape between inflection points and integrate for the shape
+    start_point = 0
+    for index in inflections:
+        # Only looking at inspiration at the moment
+        if(index <= end_insp):
+            flow_section = flw[start_point:index]
+
+            # Test whether exponential or linear gives better fit to data
+            time = range(len(flow_section))
+            ones = [1]*len(time)
+
+            #   Linear:
+            dependent = array([flow_section])
+            independent = array([time, ones])
+            linear_res = lstsq(independent.T, dependent.T)
+
+            #   Exponential:
+            ln_flow = [log(f) for f in flow_section]
+            dependent = array([ln_flow])
+            independent = array([time, ones])
+            exp_res = lstsq(independent.T, dependent.T)
+
+            # Compare fits
+            linear_error = linear_res[0][1]
+            exp_error = exp_res[0][1]
+            print('Linear_error: {}'.format(linear_error))
+            print('exp_error: {}'.format(exp_error))
+
+            # If the linear fit is best:
+            # Integrate flow over the section with the offset
+            # as the previous value. If no previous value start
+            # at zero pressure offset
+            if(abs(linear_error) > abs(exp_error)):
+                print('--> exponential fit wins')
+                section_pressure = integral(section_flow, 50)
+
+
+            # If the exponential fit is best:
+            # Approximate with a constant pressure
+            # Hold pressure constant at previous offset
+            # Hope there is no exponential from zero offset
+            else:
+                print('--> linear fit wins')
+
+            # Integrate data between inflection points
+            PR = [q*1 for q in flw]
+            int_PR = integral(PR, 50)
+
+            start_point = index
 
     # Fitting normalised estimate to known flow data
     # To see how it compares to direct calculation
