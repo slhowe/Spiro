@@ -6,15 +6,15 @@ sys.path.insert(0, '/home/sarah/Documents/Spirometry/python/extensions')
 
 import csv
 import matplotlib.pyplot as plt
-from filters import semi_gauss_lp_filter
+from filters import hamming
 from data_struct import DataStore as Data
 from numpy import array, sign
 from numpy.linalg import lstsq
 
-path = '/home/sarah/Documents/Spirometry/python/flowComparisons/'
-files = ['Calibration_set']
-#path = '/home/sarah/Documents/Spirometry/data/'
-#files = ['Loops_1.csv']
+#path = '/home/sarah/Documents/Spirometry/python/flowComparisons/'
+#files = ['Calibration_set']
+path = '/home/sarah/Documents/Spirometry/data/'
+files = ['Normal_1.csv']
 
 # Create data classes
 reset = Data('reset')
@@ -49,11 +49,11 @@ for dataset in Data:
     # measured
     pressure = dataset.pressure[0:-offset]
     flow = dataset.flow[offset:]
-    fpressure = semi_gauss_lp_filter(pressure, 125, 1, plot=True)
+    fpressure = hamming(pressure, 40, 125, 4, plot=True)
 
     plt.plot(pressure, 'b',
              flow, 'g',
-             fpressure, 'r',
+             fpressure, 'r-o',
              )
 
     plt.grid()
