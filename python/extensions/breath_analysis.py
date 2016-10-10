@@ -5,6 +5,7 @@ from filters import semi_gauss_lp_filter, hamming
 import matplotlib.pyplot as plt
 from math import pi
 from collections import Counter
+from numpy import real
 
 class BreathData:
     ''' All the things you could need
@@ -44,7 +45,7 @@ class BreathData:
 
         self.time = [t/float(Fs) for t in range(self.insp_length + self.exp_length)]
 
-def split_breaths(data, peak_height=0.1):
+def split_breaths(data, peak_height=0.1, plot=False):
     ''' Returns array of start and end indices for
         whole breaths in the data set.
         Function doesn't handle data that is noisy
@@ -121,11 +122,29 @@ def split_breaths(data, peak_height=0.1):
     endpoints = []
 
     # Filter the shit out of the signal
-    data = hamming(data, 5, 125, 10, plot=True)
-
+    data = hamming(data, 5, 125, 10, plot)
+    data = real(data).tolist()
     # Find the crossing points and check they are good
     find_crossings_and_midpoints(data, startpoints, midpoints, endpoints)
     final_breaths = check_crossings_valid(data, startpoints, midpoints, endpoints, peak_height)
+
+    if(plot):
+        fss = [data[o] for o in startpoints]
+        print(startpoints)
+        fms = [data[o] for o in midpoints]
+        fes = [data[o] for o in endpoints]
+        fts = [t for t in startpoints]
+        ftm = [t for t in midpoints]
+        fte = [t for t in endpoints]
+        plt.plot(range(len(data)), data, 'b',
+                fts, fss, 'og',
+                ftm, fms, 'oy',
+                fte, fes, 'or',
+                )
+        plt.legend(['data', 'start', 'middle', 'end'])
+        plt.grid()
+        plt.show()
+
     return final_breaths
 
 def calc_flow_delay(pressure, flow, Fs=125, plot=False):
