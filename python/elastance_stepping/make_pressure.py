@@ -73,16 +73,11 @@ def inflection_points(data, Fs, plot=False):
 
     while(i < len(derder) - 1):
         # If the sign of the number changes
-        sign_derder = signum(derder[i])
-        # Record current index
-        if(sign_derder != signum(derder[i+1])):
-            # When going from negative to positive
-            # The inflection is one point forward
-            if(sign_derder == -1):
-                crossings[num_crossings] = i - 1
-            else:
-                crossings[num_crossings] = i
+
+        if(signum(derder[i]) != signum(derder[i+1])):
+            # Record current index
             # Increment number of crossings found
+            crossings[num_crossings] = i
             num_crossings += 1
         # increment counter
         i += 1
@@ -92,7 +87,7 @@ def inflection_points(data, Fs, plot=False):
 
     # Check for peaks
     # Don't care about small noise, only big changes
-    MIN_PEAK = 50
+    MIN_PEAK = 40
     final_crossings = [0]*num_crossings
     index = 0
 
@@ -103,9 +98,14 @@ def inflection_points(data, Fs, plot=False):
         for j in range(crossings[i], crossings[i+1]):
             # If found a peak, record crossing
             if(abs(derder[j]) >= MIN_PEAK and peak_not_found):
-                final_crossings[index] = crossings[i]
-                peak_not_found = False
-                index += 1
+                if(index == 0):
+                    final_crossings[index] = crossings[i]
+                    peak_not_found = False
+                    index += 1
+                elif(j - final_crossings[index-1] > 4):
+                    final_crossings[index] = crossings[i]
+                    peak_not_found = False
+                    index += 1
 
     # Last inflection at end of data
     final_crossings[index] = len(data) - 1
@@ -136,10 +136,104 @@ def inflection_points(data, Fs, plot=False):
 
     return final_crossings
 
-# Iterate through breaths
-for breath in range(89,90): # good 84-134
 
-    print('\nBreath number {}'.format(breath))
+def model_pressure(pres, flow):
+    """
+    Integral method for finding pressure from flow
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Estimate the pressure from flow
+    Try:
+      integral(flow) = k*pressure + p0
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    over small ranges between inflection points
+    fitting linear and exponential curves between
+    sections and taking best fit. Note: exponential
+    flow fit gives results from constant pressure.
+    """
+
+    pressure_estimation = [0]*(len(pres))
+    pressure_offset = 0
+
+    # Find inflection points
+    inflections = inflection_points(flow, Fs=50, plot=True)
+
+    # Go through flow data
+    # Decide on shape between inflection points and integrate for the shape
+    start_point = 0
+    for index in inflections:
+        # Only looking at inspiration at the moment
+        if(index <= len(pres)):
+            flow_section = flow[start_point:index]
+
+            # Test whether exponential or linear gives better fit to data
+            time = [t/50.0 for t in range(len(flow_section))]
+            ones = [1]*len(time)
+
+            #   Linear:
+            dependent = array([flow_section])
+            independent = array([time, ones])
+            linear_res = lstsq(independent.T, dependent.T)
+
+            #   Exponential:
+            ln_flow = [log(f) for f in flow_section]
+            dependent = array([ln_flow])
+            independent = array([time, ones])
+            exp_res = lstsq(independent.T, dependent.T)
+
+            # Compare fits
+            linear_error = abs(linear_res[1][0])
+            exp_error = abs(exp_res[1][0])
+
+           # Find the errors as a ratio of each other
+            # Use this to define how much emphasis to put
+            # on the fit
+            total_error  = linear_error + exp_error
+            linear_percent_error = 1 - (linear_error / total_error)
+            exp_percent_error = 1 - (exp_error / total_error)
+            #print('\nLinear_error: {} = {}%'.format(linear_error, linear_percent_error*100))
+            #print('exp_error: {} = {}%'.format(exp_error, exp_percent_error*100))
+
+            if(0):
+                lin_line = [(t*linear_res[0][0][0] + linear_res[0][1][0]) for t in time]
+                exp_line = [(exp(exp_res[0][0][0]*t) * exp(exp_res[0][1][0])) for t in time]
+                plt.plot(flow_section, 'd')
+                plt.plot(lin_line, 'd')
+                plt.plot(exp_line, 'd')
+                plt.grid()
+                plt.show()
+
+            if(exp_percent_error < 0.2):
+                # Linear fit:
+                # Integrate flow over the section with the offset
+                # as the previous value. If no previous value start
+                # at zero pressure offset
+                pressure_section = integral(flow_section, 50)
+                pressure_section = [p + pressure_offset for p in pressure_section]
+
+            else:
+                # If the exponential fit is best:
+                # Approximate with a constant pressure
+                # Hold pressure constant at previous offset
+                # Hope there is no exponential from zero offset
+                pressure_section = [pressure_offset]*len(flow_section)
+
+            # Update pressure estimate and pressure offset
+            pressure_estimation[start_point:index] = pressure_section
+                    #                exp_percent_error*exp_pressure_section[i]
+                    #              + linear_percent_error*linear_pressure_section[i]
+                    #                for i in range(len(time))]
+            pressure_offset = pressure_estimation[index - 1]
+
+            start_point = index
+
+    return pressure_estimation
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# Iterate through breaths
+for breath in range(89,92): # good 84-134
+
+    print('\nBreath number {}\n~~~~~~~~~~~~~~~~'.format(breath))
     # Extract breath data
     pressure = full_data['Pressure'][0][breath]
     flow = full_data['Flow'][0][breath]
@@ -179,7 +273,7 @@ for breath in range(89,90): # good 84-134
 
     # Get peep
     peep_data = pressure[-30:-20]
-    peep = sum(peep_data)/len(peep_data)
+    peep = min(sum(peep_data)/len(peep_data), pressure[0])
     print('peep: {}'.format(peep))
 
     # Crop data to insp range
@@ -204,117 +298,61 @@ for breath in range(89,90): # good 84-134
     vol_sized_pres = [p/pres[-1]*vol[-1] for p in remade_pres]
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-    # Integral method for finding pressure from flow #
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-    # Estimate the pressure from flow
-    # Try:
-    #   integral(flow) = k*pressure + p0
-    #   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # over small ranges between inflection points
-    # fitting linear and exponential curves between
-    # sections and taking best fit. Note: exponential
-    # flow fit gives results from constant pressure.
+    # Model the pressure
+    pressure_estimation = model_pressure(pres, flow)
 
-    Pressure_estimation = [0]*len(pres)
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Make the estimation big to see how it overlaps
+    max_P = max(pressure_estimation)
+    pressure_estimation = [p/max_P for p in pressure_estimation]
 
-    # Find inflection points
-    inflections = inflection_points(flow, Fs=50, plot=True)
-
-    # Go through flow data
-    # Decide on shape between inflection points and integrate for the shape
-    start_point = 0
-    for index in inflections:
-        # Only looking at inspiration at the moment
-        if(index <= end_insp):
-            flow_section = flw[start_point:index]
-
-            # Test whether exponential or linear gives better fit to data
-            time = range(len(flow_section))
-            ones = [1]*len(time)
-
-            #   Linear:
-            dependent = array([flow_section])
-            independent = array([time, ones])
-            linear_res = lstsq(independent.T, dependent.T)
-
-            #   Exponential:
-            ln_flow = [log(f) for f in flow_section]
-            dependent = array([ln_flow])
-            independent = array([time, ones])
-            exp_res = lstsq(independent.T, dependent.T)
-
-            # Compare fits
-            linear_error = linear_res[0][1]
-            exp_error = exp_res[0][1]
-            print('Linear_error: {}'.format(linear_error))
-            print('exp_error: {}'.format(exp_error))
-
-            # If the linear fit is best:
-            # Integrate flow over the section with the offset
-            # as the previous value. If no previous value start
-            # at zero pressure offset
-            if(abs(linear_error) > abs(exp_error)):
-                print('--> exponential fit wins')
-                section_pressure = integral(section_flow, 50)
-
-
-            # If the exponential fit is best:
-            # Approximate with a constant pressure
-            # Hold pressure constant at previous offset
-            # Hope there is no exponential from zero offset
-            else:
-                print('--> linear fit wins')
-
-            # Integrate data between inflection points
-            PR = [q*1 for q in flw]
-            int_PR = integral(PR, 50)
-
-            start_point = index
-
-    # Fitting normalised estimate to known flow data
-    # To see how it compares to direct calculation
-    ones = [1]*len(flw)
+    # Scale the pressure up
     dependent = array([pres])
-    independent = array([int_PR])#, ones])
+    independent = array([pressure_estimation])
     res = lstsq(independent.T, dependent.T)
-    #offset = res[0][1][0]
-    magnitude = res[0][0][0]
+    pressure_estimation_scaled = [p*res[0][0][0] for p in pressure_estimation]
 
-    #estimate = [(magnitude*ipr + offset) for ipr in int_PR]
-    estimate = [(magnitude*ipr) for ipr in int_PR]
-    estimate2 = [ipr for ipr in int_PR]
-
-        # Find R and E
-    dependent = array([estimate])
+    # Use scaled data to directly predict
+    dependent = array([pressure_estimation_scaled])
     independent = array([flw, vol])
     res = lstsq(independent.T, dependent.T)
 
-    E_est = res[0][1][0]
-    R_est = res[0][0][0]
-    print('E_est: {}'.format(E_est))
-    print('R_est: {}'.format(R_est))
-    print('E/R_est: {}'.format(E_est/R_est))
-    remade_pres_est = [E_est*volume[i] + R_est*flow[i] for i in range(len(flow))]
-    flow_est = derivative(int_PR, 50)
+    E_s = res[0][1][0]
+    R_s = res[0][0][0]
+    print('E scaled: {}'.format(E_s))
+    print('R scaled: {}'.format(R_s))
+
+    # Look at how good the prediction is for E/R
+    dependent = array([pressure_estimation])
+    independent = array([flw, vol])
+    res = lstsq(independent.T, dependent.T)
+
+    EoP = res[0][1][0]
+    RoP = res[0][0][0]
+    print('E/R actual: {}'.format(E/R))
+    print('E/R estimate: {}'.format(EoP/RoP))
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Find flow back from estimation
+    Q = [(pressure_estimation[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
+    Q_error = [flw[i] - Q[i] for i in range(len(flw))]
+
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # plot stuff
     f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
-    ax1.plot(pressure_drop, 'bx-')
+    ax1.plot(pressure_drop, 'bd-')
     ax1.plot(range(start_insp,end_insp), pres, 'cx-')
-    ax1.plot(range(start_insp,end_insp), estimate, 'o-', color='#b0e0e6')
     ax1.plot(remade_pres, 'kx-')
-    ax1.plot(remade_pres_est, 'k-')
+    #ax1.plot(pressure_estimation, 'rx-')
+    ax1.plot(pressure_estimation_scaled, 'md-')
 
     ax2.plot(flow, 'mx-')
-    ax2.plot(range(start_insp,end_insp-1), flow_est, 'r*-')
-    ax2.plot(range(start_insp,end_insp), PR, 'ro-')
     ax2.plot(range(start_insp,end_insp), flw, '^-', color='#ffddf4')
+    ax2.plot(Q, 'g*-')
+    ax2.plot(Q_error, 'r*-')
 
     ax3.plot(volume,'yx-')
-    ax3.plot(range(start_insp,end_insp),
-            [p+vol_sized_pres[start_insp] for p in int_PR],'x-', color='#978248')
     ax3.plot(vol_sized_pres,'x-', color = '#f08080')
 
     ax1.grid()
