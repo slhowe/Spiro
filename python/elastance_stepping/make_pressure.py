@@ -28,7 +28,7 @@ path = '/home/sarah/Documents/Spirometry/data/ventilation/'
 # Place to save plots
 plot_path = '/home/sarah/Documents/Spirometry/lungPlots/'
 
-files = ['ManualDetection_Patient8_PM.mat']
+files = ['ManualDetection_Patient4_PM.mat']
 files = [path + name for name in files]
 filename = files[0]
 
@@ -144,19 +144,24 @@ def dirty_model_pressure(start, end, flow):
     pressure_offset = 0
 
     # Find inflection points
-    inflections = inflection_points(flow, Fs=50, plot=True)
+    inflections = inflection_points(flow, Fs=50, plot=False)
 
-    # Go through flow data
-    # Decide on shape between inflection points and integrate for the shape
+    # Get index of the last inflection
+    last_inflection = 0
+    for inflection in inflections:
+        if(inflection < end):
+            last_inflection += 1
+
     start_point = start
-    for index in inflections:
-        # Only looking at inspiration at the moment
+    for index in inflections[:last_inflection]:
         if(index <= end):
             flow_section = flow[start_point:index]
 
+            # Integrate if flow increasing
             if(flow[index] > flow[start_point]):
                 pressure_section = integral(flow_section, 50)
                 pressure_section = [p + pressure_offset for p in pressure_section]
+            # Hold constant if flow decreasing
             else:
                 pressure_section = [pressure_offset]*len(flow_section)
 
@@ -165,161 +170,118 @@ def dirty_model_pressure(start, end, flow):
             pressure_offset = pressure_section[-1]
             start_point = index
 
-    pressure_estimation[-1] = pressure_estimation[-2]
+    # Carry over last points if not at inflection point
+    if(index < end):
+        flow_section = flow[index:end]
+
+        # Integrate if flow increasing
+        if(flow[end] > flow[index]):
+            pressure_section = integral(flow_section, 50)
+            pressure_section = [p + pressure_offset for p in pressure_section]
+        # Hold constant if flow decreasing
+        else:
+            pressure_section = [pressure_offset]*len(flow_section)
+
+        # Update pressure estimate and pressure offset
+        pressure_estimation[index-start:end] = pressure_section
+
     return pressure_estimation
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Iterate through breaths
-for breath in range(80,99): # good 84-134
+for breath in range(0,464): # good 84-134
 
     print('\nBreath number {}\n~~~~~~~~~~~~~~~~'.format(breath))
     # Extract breath data
     pressure = full_data['Pressure'][0][breath]
     flow = full_data['Flow'][0][breath]
 
-    # pressure and flow in weird format
-    # change into array
-    pressure = pressure.tolist()
-    pressure = [p[0] for p in pressure] # every item is own list
-    flow = flow.tolist()
-    flow = [f[0] for f in flow]
+    if(flow[0] > 0.01):
+        print('Non-zero flow start, ignoring')
+    else:
+        # pressure and flow in weird format
+        # change into array
+        pressure = pressure.tolist()
+        pressure = [p[0] for p in pressure] # every item is own list
+        flow = flow.tolist()
+        flow = [f[0] for f in flow]
 
-    # filter
-    flow = hamming(flow, 20, 50, 10)
-    flow = real(flow).tolist()
-    volume = integral(flow, 50)
+        # filter
+        flow = hamming(flow, 20, 50, 10)
+        flow = real(flow).tolist()
+        volume = integral(flow, 50)
 
-    # only care about inspiration at the moment
-    start_insp = 0
-    end_insp = 0
-    start_not_found = True
-    i = 0
-    while i < (len(flow)):
-        # Find first positive index for start of insp
-        if(flow[i] > 0 and start_not_found):
-            start_insp = i
-            start_not_found = False
-            # Skip forwards. Don't want end close to start
-            # if there is a small drop straight away.
-            # 10 dp is about 200 ms so not too long
-            i += 10
+        # only care about inspiration at the moment
+        start_insp = 0
+        end_insp = len(flow)
+        start_not_found = True
+        i = 0
+        while i < (len(flow)):
+            # Find first positive index for start of insp
+            if(flow[i] > 0 and start_not_found):
+                start_insp = i
+                start_not_found = False
+                # Skip forwards. Don't want end close to start
+                # if there is a small drop straight away.
+                # 10 dp is about 200 ms so not too long
+                i += 10
 
-        # Find negative flow for end of insp
-        if(flow[i]<= 0 and not start_not_found):
-            end_insp = i - 1
-            i = len(flow)
+            # Find negative flow for end of insp
+            if(flow[i] <= -0.1 and not start_not_found):
+                end_insp = i
+                i = len(flow)
 
-        i += 1
+            i += 1
 
-    print('start_insp: {}'.format(start_insp))
-    print('end_insp: {}'.format(end_insp))
+        print('start_insp: {}'.format(start_insp))
+        print('end_insp: {}'.format(end_insp))
 
-    # Get peep
-    peep_data = pressure[-30:-20]
-    peep = min(sum(peep_data)/len(peep_data), pressure[0])
-    print('peep: {}'.format(peep))
+        # Get peep
+        peep_data = pressure[-30:-20]
+        peep = min(sum(peep_data)/len(peep_data), pressure[0])
+        print('peep: {}'.format(peep))
 
-    # Crop data to insp range
-    flw = flow[start_insp:end_insp]
-    pres = pressure[start_insp:end_insp]
-    pres = [p - peep for p in pres]
-    vol = volume[start_insp:end_insp]
+        # Crop data to insp range
+        flw = flow[start_insp:end_insp]
+        pres = pressure[start_insp:end_insp]
+        pres = [p - peep for p in pres]
+        vol = volume[start_insp:end_insp]
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    # Find R and E directly from pressure
-    dependent = array([pres])
-    independent = array([flw, vol])
-    res = lstsq(independent.T, dependent.T)
+        # Find R and E directly from pressure
+        dependent = array([pres])
+        independent = array([flw, vol])
+        res = lstsq(independent.T, dependent.T)
 
-    E = res[0][1][0]
-    R = res[0][0][0]
-    print('E: {}'.format(E))
-    print('R: {}'.format(R))
-    print('E/R actual: {}'.format(E/R))
-    print('')
-
-    pressure_drop = [p - peep for p in pressure]
-    remade_pres = [E*volume[i] + R*flow[i] for i in range(len(flow))]
-    vol_sized_pres = [p/pres[-1]*vol[-1] for p in remade_pres]
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    # Model the pressure
-    pressure_estimation = dirty_model_pressure(start_insp, end_insp, flow)
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    # Scale the pressure up
-    dependent = array([pres])
-    independent = array([pressure_estimation])
-    res = lstsq(independent.T, dependent.T)
-    scaling = res[0][0][0]
-    pressure_estimation_scaled = [p*scaling for p in pressure_estimation]
-
-    # Use scaled data to directly predict
-    dependent = array([pressure_estimation_scaled])
-    independent = array([flw, vol])
-    res = lstsq(independent.T, dependent.T)
-
-    E_s = res[0][1][0]
-    R_s = res[0][0][0]
-    print('E scaled: {}'.format(E_s))
-    print('R scaled: {}'.format(R_s))
-    print('E/R estimate: {}'.format(E_s/R_s))
-
-    # Get Eop and Rop from estimation
-    dependent = array([pressure_estimation])
-    independent = array([flw, vol])
-    res = lstsq(independent.T, dependent.T)
-    EoP = res[0][1][0]
-    RoP = res[0][0][0]
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    for iteration in range(3):
+        E = res[0][1][0]
+        R = res[0][0][0]
+        print('E: {}'.format(E))
+        print('R: {}'.format(R))
+        print('E/R actual: {}'.format(E/R))
         print('')
 
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+        pressure_drop = [p - peep for p in pressure]
+        remade_pres = [E*volume[i] + R*flow[i] for i in range(len(flow))]
+        vol_sized_pres = [p/pres[-1]*vol[-1] for p in remade_pres]
 
-        # Forward simulate flow from pressure estimation
-        Q = [(pressure_estimation[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
-        Q_error = [flw[i] - Q[i] for i in range(len(flw))]
-        max_flow = max(flow)
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        #P_error = model_pressure(end_insp, Q_error)
-        #P_error = [(vol[i]*EoP) + (flw[i]*RoP) for i in range(len(vol))]
-        P_error = [0]*len(pressure_estimation)
-        aa = []
+        # Model the pressure
+        pressure_estimation = dirty_model_pressure(start_insp, end_insp, flow)
 
-        for i in range(len(Q)):
-            # Work out the error
-            if(flow[i] != 0):
-                percent_error = (Q_error[i])/max_flow
-            else:
-                percent_error = 0
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            aa.append(percent_error)
-            P_error[i] = (1 + percent_error)*pressure_estimation[i]
-
-        #new_P = [pressure_estimation[i] + P_error[i] for i in range(len(flw))]
-        #new_P_scaled = [p*scaling for p in new_P]
-        P_error_scaled = [p*scaling for p in P_error]
-
-        pressure_estimation= P_error
-        Q2 = [(P_error[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
-
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-
-        # Use scaled data to directly predict
+        # Scale the pressure up
         dependent = array([pres])
         independent = array([pressure_estimation])
         res = lstsq(independent.T, dependent.T)
         scaling = res[0][0][0]
-        pressure_estimation_scaled = [p*scaling for p in pressure_estimation]
+        pressure_estimation_scaled_orig = [p*scaling for p in pressure_estimation]
 
-        dependent = array([pressure_estimation_scaled])
+        # Use scaled data to directly predict
+        dependent = array([pressure_estimation_scaled_orig])
         independent = array([flw, vol])
         res = lstsq(independent.T, dependent.T)
 
@@ -329,24 +291,91 @@ for breath in range(80,99): # good 84-134
         print('R scaled: {}'.format(R_s))
         print('E/R estimate: {}'.format(E_s/R_s))
 
+        # Get Eop and Rop from estimation
+        dependent = array([pressure_estimation])
+        independent = array([flw, vol])
+        res = lstsq(independent.T, dependent.T)
+        EoP = res[0][1][0]
+        RoP = res[0][0][0]
+
+        Q_orig = [(pressure_estimation[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
+
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        MAX_ITERATIONS = 25
+        MAX_FITTING_ERROR = 0.4
+
+        iteration = 0
+        flow_fitting_error = 1
+        while(iteration < MAX_ITERATIONS and flow_fitting_error > MAX_FITTING_ERROR):
+            print('')
+
+            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+
+            # Forward simulate flow from pressure estimation
+            Q = [(pressure_estimation[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
+            Q_error = [flw[i] - Q[i] for i in range(len(flw))]
+            flow_fitting_error = [q**2 for q in Q_error]
+            flow_fitting_error = sum(flow_fitting_error)
+            print(flow_fitting_error)
+
+            max_flow = max(flow)
+            max_flow += max_flow*(iteration/10.0)
+
+            P_error = [0]*len(pressure_estimation)
+
+            for i in range(len(Q)):
+                # Work out the error
+                if(flow[i] != 0):
+                    percent_error = (Q_error[i])/max_flow
+                    if(percent_error > 1):
+                        percent_error = 0.99
+                    elif (percent_error < -1):
+                        percent_error = -0.99
+                else:
+                    percent_error = 0
+
+                P_error[i] = (1 + percent_error)*pressure_estimation[i]
+
+            P_error_scaled = [p*scaling for p in P_error]
+
+            pressure_estimation= P_error
+            Q2 = [(P_error[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
+
+            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+
+            # Use scaled data to directly predict
+            dependent = array([pres])
+            independent = array([pressure_estimation])
+            res = lstsq(independent.T, dependent.T)
+            scaling = res[0][0][0]
+            pressure_estimation_scaled = [p*scaling for p in pressure_estimation]
+
+            dependent = array([pressure_estimation_scaled])
+            independent = array([flw, vol])
+            res = lstsq(independent.T, dependent.T)
+
+            E_s = res[0][1][0]
+            R_s = res[0][0][0]
+            print('E scaled: {}'.format(E_s))
+            print('R scaled: {}'.format(R_s))
+            print('E/R estimate: {}'.format(E_s/R_s))
+
+            iteration += 1
+
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # plot stuff
         if(1):
             f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
             ax1.plot(pressure_drop[0:90], 'bd-', linewidth=3)
-            #ax1.plot(range(start_insp,end_insp), pres, 'cx-')
-            #ax1.plot(remade_pres[0:90], 'kx-')
-            #ax1.plot(pressure_estimation, 'rx-')
-            ax1.plot(pressure_estimation_scaled, 'md-')
-            #ax1.plot(new_P_scaled, 'g*-')
-            ax1.plot(P_error_scaled, 'r*-', linewidth=3)
-            ax1.plot(aa)
+            ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'md-')
+            ax1.plot(range(start_insp,end_insp), P_error_scaled, 'r*-', linewidth=3)
 
             ax2.plot(flow[0:90], 'mx-')
             ax2.plot(range(start_insp,end_insp), flw, '^-', color='#ffddf4')
-            ax2.plot(Q, 'g*-')
-            ax2.plot(Q_error, 'r*-')
-            ax2.plot(Q2, 'c*-')
+            ax2.plot(range(start_insp,end_insp), Q_orig, 'g*-')
+            ax2.plot(range(start_insp,end_insp), Q_error, 'r*-')
+            ax2.plot(range(start_insp,end_insp), Q2, 'c*-')
 
             ax3.plot(volume[0:90],'yx-')
             ax3.plot(vol_sized_pres[0:90],'x-', color = '#f08080')
