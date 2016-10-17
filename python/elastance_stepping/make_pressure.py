@@ -320,7 +320,8 @@ for breath in range(first_breath,last_breath):
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        # Model the pressure
+        # Estimate the driving pressure
+        # Guessing P = E * integral(Q) {approx}
         pressure_estimation = dirty_model_pressure(start_insp, end_insp, flow, volume)
 
         # Get parameters from estimated pressure
@@ -338,6 +339,7 @@ for breath in range(first_breath,last_breath):
         # Using the estimated pressure, E should = 1.
         # If not, there was an error in the magnitude of estimate.
         # Divide pressure estimate by E_est to correct for error.
+        # This totally assumes the shape is correct
         pressure_estimation_updated = [p/E_est for p in pressure_estimation]
 
         # Update changes to parameters
@@ -376,67 +378,70 @@ for breath in range(first_breath,last_breath):
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        MAX_ITERATIONS = 35
+        # Specify conditions to stop iteration
+        MAX_ITERATIONS = 1
         MAX_FITTING_ERROR = 0.4
 
+        # Begin iterating
         iteration = 0
         flow_fitting_error = 1
         while(iteration < MAX_ITERATIONS and flow_fitting_error > MAX_FITTING_ERROR):
-            #print('')
 
             # Forward simulate flow from pressure estimation
-            Q = [(pressure_estimation[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
+            Q = [(pressure_estimation_updated[i] - vol[i]*E_est)/R_est
+                for i in range(len(vol))]
+
+            # Find the squared error in flow fitting
             Q_error = [flw[i] - Q[i] for i in range(len(flw))]
             flow_fitting_error = [q**2 for q in Q_error]
             flow_fitting_error = sum(flow_fitting_error)
 
+            # Amount pressure is altered by depends on
+            # how many iterations there have been.
+            # Higher iterations will alter pressure less.
             max_flow = max(flow)
             max_flow += max_flow*(iteration/10.0)
 
+            # Array to store pressure alterations
             P_error = [0]*len(pressure_estimation)
 
+            # Work out the error in flow as a percentage
+            # of the maximum flow.
             for i in range(len(Q)):
-                # Work out the error
-                if(flow[i] != 0):
-                    percent_error = (Q_error[i])/max_flow
-                    if(percent_error > 1):
-                        percent_error = 0.99
-                    elif (percent_error < -1):
-                        percent_error = -0.99
-                else:
-                    percent_error = 0
+                percent_error = (Q_error[i])/max_flow
+                # Set maximum error of +/- 100%
+                if(percent_error > 1):
+                    percent_error = 0.99
+                elif (percent_error < -1):
+                    percent_error = -0.99
 
+                # Increase or decrease pressure estimation depending
+                # on flow error at that point
                 P_error[i] = (1 + percent_error)*pressure_estimation[i]
 
-            P_error_scaled = [p*scaling for p in P_error]
-
             pressure_estimation= P_error
-            Q2 = [(P_error[i] - vol[i]*EoP)/RoP for i in range(len(vol))]
 
-            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-
-            # Use scaled data to directly predict
-            dependent = array([pres])
-            independent = array([pressure_estimation])
-            res = lstsq(independent.T, dependent.T)
-            scaling = res[0][0][0]
-            scaling = E
-            pressure_estimation_scaled = [p*scaling for p in pressure_estimation]
-
-            dependent = array([pressure_estimation_scaled])
+            # Get new parameters
+            dependent = array([pressure_estimation])
             independent = array([flw, vol])
             res = lstsq(independent.T, dependent.T)
-
-            E_s = res[0][1][0]
-            R_s = res[0][0][0]
-            #print('E scaled: {}'.format(E_s))
-            #print('R scaled: {}'.format(R_s))
-            #print('E/R estimate: {}'.format(E_s/R_s))
+            E_est = res[0][1][0]
+            R_est = res[0][0][0]
 
             iteration += 1
+
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+        ### THIS SECTION USES PRESSURE DATA ###
+
+        P_error_scaled = [p*scaling for p in P_error]
+        flow_after_iteration = [(P_error[i] - vol[i]*EoP)/RoP
+                                    for i in range(len(vol))]
+
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
 
         # Get Eop and Rop from estimation
         dependent = array([pressure_estimation])
