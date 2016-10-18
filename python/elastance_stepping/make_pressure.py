@@ -9,6 +9,7 @@ from data_struct import DataStore
 from breath_analysis import BreathData, split_breaths, calc_flow_delay
 from calculus import integral, derivative
 from filters import hamming
+from data_extraction import load_mat_file, ManualDetection_data
 
 #Import built-ins
 import matplotlib.pyplot as plt
@@ -89,7 +90,7 @@ def peak_points(data, Fs, plot=False):
     return final_crossings
 
 
-def model_pressure(start, end, flow, volume):
+def model_pressure(start, end, flow, volume, pressure_offset):
 
     def estimate_pressure(flow, volume, start, end, pressure_offset, factor):
         flow_section = flow[start:end]
@@ -123,7 +124,6 @@ def model_pressure(start, end, flow, volume):
 
     # Setup
     pressure_estimation = [0]*(end-start)
-    pressure_offset = 0
 
     Q_max = max(flow)
     V_max = max(volume)
@@ -202,20 +202,13 @@ if(__name__ == '__main__'):
     files = [path + name for name in files]
     filename = files[0]
 
-    # Load matlab file
-    mat = io.loadmat(filename)
-    full_data = mat['ManualDetection']
+    data = load_mat_file(filename)
 
     # Specify breaths to iterate through
     first_breath = 0
     last_breath = 480
 
     # Space to save results
-    scaling_factors = [nan]*last_breath
-    Ea = [nan]*last_breath
-    Ra = [nan]*last_breath
-    Es = [nan]*last_breath
-    Rs = [nan]*last_breath
     ERa = [nan]*last_breath
     ERs = [nan]*last_breath
 
@@ -223,18 +216,9 @@ if(__name__ == '__main__'):
     for breath in range(first_breath,last_breath):
         print('\nBreath number {}\n~~~~~~~~~~~~~~~~'.format(breath))
 
-        # Extract pressure and flow data
-        pressure = full_data['Pressure'][0][breath]
-        flow = full_data['Flow'][0][breath]
-
-        # Pressure and flow are in a weird format
-        # of array of lists of single values.
-        # Convert array to list and pull values out
-        # into main list.
-        pressure = pressure.tolist()
-        pressure = [p[0] for p in pressure] # every item is own list
-        flow = flow.tolist()
-        flow = [f[0] for f in flow]
+        breath_data = ManualDetection_data(data, breath)
+        pressure = breath_data[0]
+        flow = breath_data[1]
 
         # filter data
         flow = hamming(flow, 20, 50, 10)
@@ -301,7 +285,19 @@ if(__name__ == '__main__'):
 
             # Estimate the driving pressure
             # Guessing P = E * integral(Q) {approx}
-            pressure_estimation = model_pressure(start_insp, end_insp, flow, volume)
+            pressure_offset = 0
+            pressure_estimation = model_pressure(start_insp,
+                                                 end_insp,
+                                                 flow,
+                                                 volume,
+                                                 pressure_offset)
+
+            pressure_offset = pressure_estimation[-1]
+            exp_pressure_estimation = model_pressure(start_insp,
+                                                     end_insp,
+                                                     flow,
+                                                     volume,
+                                                     pressure_offset)
 
             # Get parameters from estimated pressure
             dependent = array([pressure_estimation])
@@ -322,7 +318,6 @@ if(__name__ == '__main__'):
             pressure_estimation_updated = [p/E_est for p in pressure_estimation]
 
             # Update changes to parameters
-            scaling_factors[breath] = (1/E_est)
             R_est /= E_est
             E_est /= E_est
 
@@ -365,18 +360,6 @@ if(__name__ == '__main__'):
             pressure_estimation_scaled_updated = [p * scaling
                                                   for p in pressure_estimation_updated]
 
-            # Use scaling to directly predict parameters
-            E_s = E_est * E
-            R_s = R_est * E
-            print('E scaled: {}'.format(E_s))
-            print('R scaled: {}'.format(R_s))
-            print('R/E estimate: {}'.format(R_s/E_s))
-            print('')
-
-            Ea[breath] = (E)
-            Ra[breath] = (R)
-            Es[breath] = (E_est * scaling)
-            Rs[breath] = (R_est * scaling)
             ERa[breath] = (R/E)
             ERs[breath] = (R_est/E_est)
 
