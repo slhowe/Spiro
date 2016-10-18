@@ -206,7 +206,7 @@ full_data = mat['ManualDetection']
 
 # Specify breaths to iterate through
 first_breath = 0
-last_breath = 1
+last_breath = 480
 
 # Space to save results
 scaling_factors = [nan]*last_breath
@@ -343,8 +343,8 @@ for breath in range(first_breath,last_breath):
         pressure_estimation_updated = [p/E_est for p in pressure_estimation]
 
         # Update changes to parameters
-        E_est /= E_est
         R_est /= E_est
+        E_est /= E_est
 
         print('E_updated: {}'.format(E_est))
         print('R_updated: {}'.format(R_est))
@@ -379,8 +379,10 @@ for breath in range(first_breath,last_breath):
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
         # Specify conditions to stop iteration
-        MAX_ITERATIONS = 1
+        MAX_ITERATIONS = 0
         MAX_FITTING_ERROR = 0.1
+
+        P_error = [0]*len(pressure_estimation)
 
         # Begin iterating
         iteration = 0
@@ -456,20 +458,20 @@ for breath in range(first_breath,last_breath):
             ax1.plot(remade_pres, 'c-')
             ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'r:')
             ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_updated, 'm-')
-            ax1.plot(range(start_insp,end_insp), P_error_scaled, 'k-')
+            #ax1.plot(range(start_insp,end_insp), P_error_scaled, 'k-')
             ax1.legend([
                         'Pressure',
                         'Forward sim from data',
                         'Original estimate (scaled)',
                         'Updated estimate (scaled)',
                         'Estimate after iteration (scaled)'
-                        ])
+                        ], loc=4)
 
             ax2.plot(flow[0:end_insp], color='#917793')
             ax2.plot(range(start_insp,end_insp), flw, 'r-', linewidth=3)
             ax2.plot(remade_flow, 'b-')
             ax2.plot(range(start_insp,end_insp), Q_orig, 'm*-')
-            ax2.plot(range(start_insp,end_insp), flow_after_iteration, 'k*-')
+            #ax2.plot(range(start_insp,end_insp), flow_after_iteration, 'k*-')
             ax2.legend([
                         'Flow',
                         'Flow data used',
