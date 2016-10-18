@@ -206,7 +206,7 @@ full_data = mat['ManualDetection']
 
 # Specify breaths to iterate through
 first_breath = 0
-last_breath = 466
+last_breath = 1
 
 # Space to save results
 scaling_factors = [nan]*last_breath
@@ -313,8 +313,8 @@ for breath in range(first_breath,last_breath):
         print('')
 
         # Remake pressure and flow from parameters
-        remade_pres = [E*volume[i] + R*flow[i] for i in range(len(flow))]
-        remade_flow = [(pressure[i] - E*volume[i])/R for i in range(len(flow))]
+        remade_pres = [E*vol[i] + R*flw[i] for i in range(len(flw))]
+        remade_flow = [(pres[i] - E*vol[i])/R for i in range(len(flw))]
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -380,7 +380,7 @@ for breath in range(first_breath,last_breath):
 
         # Specify conditions to stop iteration
         MAX_ITERATIONS = 1
-        MAX_FITTING_ERROR = 0.4
+        MAX_FITTING_ERROR = 0.1
 
         # Begin iterating
         iteration = 0
@@ -400,7 +400,7 @@ for breath in range(first_breath,last_breath):
             # how many iterations there have been.
             # Higher iterations will alter pressure less.
             max_flow = max(flow)
-            max_flow += max_flow*(iteration/10.0)
+            max_flow += max_flow * iteration
 
             # Array to store pressure alterations
             P_error = [0]*len(pressure_estimation)
@@ -436,31 +436,16 @@ for breath in range(first_breath,last_breath):
         ### THIS SECTION USES PRESSURE DATA ###
 
         P_error_scaled = [p*scaling for p in P_error]
-        flow_after_iteration = [(P_error[i] - vol[i]*EoP)/RoP
-                                    for i in range(len(vol))]
+        flow_after_iteration = [(P_error[i] - vol[i]*E_est)/R_est
+                                for i in range(len(vol))]
 
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~``
-
-        # Get Eop and Rop from estimation
-        dependent = array([pressure_estimation])
-        independent = array([flw, vol])
-        res = lstsq(independent.T, dependent.T)
-        EoP = res[0][1][0]
-        RoP = res[0][0][0]
-        print('EoP: {}'.format(EoP))
-        print('RoP: {}'.format(RoP))
-        print('R/E : {}'.format(RoP/EoP))
 
         scaling_factors[breath] = (scaling)
         Ea[breath] = (E)
         Ra[breath] = (R)
-        Es[breath] = (E_s)
-        Rs[breath] = (R_s)
+        Es[breath] = (E_est * scaling)
+        Rs[breath] = (R_est * scaling)
 
-        comb_flow = [(pressure_estimation_scaled[i] - vol[i]*E)/R for i in range(len(vol))]
-        comb_pressure = [R*flw[i] +  vol[i]*E for i in range(len(vol))]
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # plot stuff
@@ -468,17 +453,35 @@ for breath in range(first_breath,last_breath):
             f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
 
             ax1.plot(pressure[0:end_insp], 'b-', linewidth=3)
-            ax1.plot(range(start_insp,end_insp), remade_pres, 'b-')
-            ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'm:')
+            ax1.plot(remade_pres, 'c-')
+            ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'r:')
             ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_updated, 'm-')
-            ax1.plot(range(start_insp,end_insp), comb_pressure, 'b^-')
+            ax1.plot(range(start_insp,end_insp), P_error_scaled, 'k-')
+            ax1.legend([
+                        'Pressure',
+                        'Forward sim from data',
+                        'Original estimate (scaled)',
+                        'Updated estimate (scaled)',
+                        'Estimate after iteration (scaled)'
+                        ])
 
-            ax2.plot(flow[0:end_insp], 'm-')
-            ax2.plot(range(start_insp,end_insp), flw, '^-', color='#ffddf4', linewidth=3)
-            ax2.plot(range(start_insp,end_insp), remade_flow, 'b-')
-            ax2.plot(range(start_insp,end_insp), Q_orig, 'c*-')
+            ax2.plot(flow[0:end_insp], color='#917793')
+            ax2.plot(range(start_insp,end_insp), flw, 'r-', linewidth=3)
+            ax2.plot(remade_flow, 'b-')
+            ax2.plot(range(start_insp,end_insp), Q_orig, 'm*-')
+            ax2.plot(range(start_insp,end_insp), flow_after_iteration, 'k*-')
+            ax2.legend([
+                        'Flow',
+                        'Flow data used',
+                        'Forward sim from data',
+                        'Forward sim from estimate',
+                        'Forward sim after iteration'
+                        ])
 
             ax3.plot(volume[0:end_insp],'yx-')
+            ax3.legend([
+                        'Volume'
+                        ])
 
             ax1.grid()
             ax2.grid()
