@@ -9,7 +9,7 @@ from data_struct import DataStore
 from breath_analysis import BreathData, split_breaths, calc_flow_delay
 from calculus import integral, derivative
 from filters import hamming
-from data_extraction import load_mat_file, ManualDetection_data
+import data_extraction as extr
 
 #Import built-ins
 import matplotlib.pyplot as plt
@@ -19,8 +19,10 @@ from scipy import io
 from numpy.linalg import lstsq
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
-# function definitions
 
+#######################################
+# Indices to split data into sections #
+#######################################
 def peak_points(data, Fs, plot=False):
     """
     Local minima and maxima are at zero crossings
@@ -41,27 +43,34 @@ def peak_points(data, Fs, plot=False):
         elif(num > 0): return 1;
         else: return 0;
 
-    # Find second derivative of data
+    # Find derivative of data
     der = derivative(data, Fs)
 
-    # Find crossings
+    # Data is split into small chunks
+    # Define minimum chunk size here
+    MIN_SECTION_SIZE = 3
+
+    # Setup
     crossings = [0]*len(der)
     num_crossings = 0
-    i = 3
+    i = MIN_SECTION_SIZE
 
     while(i < len(der)):
         # If the sign of the number changes
 
+        # Indices are recorded at points where
+        # flow crosses zero (inh <-> exh)
+        # or at minima/maxima. Flow zero crossings
+        # are priority.
         if(signum(flow[i-1]) != signum(flow[i])):
             crossings[num_crossings] = i
             num_crossings += 1
-            i += 1
+            i += (MIN_SECTION_SIZE - 2)
         elif(signum(der[i-1]) != signum(der[i])):
-            # Record current index
-            # Increment number of crossings found
             crossings[num_crossings] = i
             num_crossings += 1
-            i += 1
+            i += (MIN_SECTION_SIZE - 2)
+
         # increment counter
         i += 1
 
@@ -71,9 +80,10 @@ def peak_points(data, Fs, plot=False):
     # Last point at end of data
     final_crossings[-1] = len(data) - 1
 
+    # Optional plotting
     if(plot):
-        # Plot data, derivative and second derivative
-        # Data plot shows point points
+        # Plot data, derivative
+        # Data plot shows points
         l, (axa, axb) = plt.subplots(2, sharex=True)
         axa.plot(data, 'd-')
         axa.plot(crossings, [data[c] for c in crossings], 'rd')
@@ -89,33 +99,51 @@ def peak_points(data, Fs, plot=False):
 
     return final_crossings
 
-
+######################
+# Pressure modelling #
+######################
 def model_pressure(start, end, flow, volume, pressure_offset):
 
     def estimate_pressure(flow, volume, start, end, pressure_offset, factor):
+        # Looking at a small section of flow
         flow_section = flow[start:end]
-        vol_section = integral(flow_section, 50)
+
+        # Gradient of flow in section
         flow_gradient = (flow_section[-1] - flow_section[0])/(len(flow_section)/50.0)
-        vol_gradient = (vol_section[-1] - vol_section[0])/(len(vol_section)/50.0)
 
-        new_factor = (1 - (factor - 1)/2) * 0.6
-        if(new_factor < 0):
-            new_factor = 0
-        print(new_factor)
-
-        # Want to flip the gradient if data is negative
+       # Want to flip the gradient if flow is negative
+        # This will subtract a slope from the pressure
+        # offset so pressure decreases for negative flow
         if(flow_section[0] < 0):
             flow_gradient = -flow_gradient
-            vol_gradient = -vol_gradient
 
         # Flow increasing
+        # Models large jump at start of insp/exp
+        # Jump size is very dependent on the rate of change of flow
+        # Quicker rise time gives larger pressure jump
         if(flow_gradient > 0):
+            print('flow_gradient: {}'.format(flow_gradient))
             pressure_section = integral(flow_section, 50)
-            pressure_section = [pressure_offset + p*flow_gradient
+            pressure_section = [pressure_offset + p*flow_gradient*12
                                 for p in pressure_section]
 
-        # flow decreasing
+        # Flow decreasing
+        # Modelled as a constant pressure with a slight ramp
+        # Slope of ramp depends on overall trend of breath
+        # Trend found from (max flow/max volume) factor
+        # If factor is large, pressure is quite flat
+        # If factor is small, pressure has slope
+        # Lower factor gives a steeper slope
         else:
+            # Define factor used to control slope
+            # of pressure when flow decreasing
+            # 0.6 is a fudge-factor. Examples give
+            # a range 0.5-0.7 so 0.6 was chosen
+            new_factor = (1 - (factor - 1)/2) * 0.6
+            if(new_factor < 0):
+                new_factor = 0
+            print('new factor: {}'.format(new_factor))
+
             pressure_section = integral(flow_section, 50)
             pressure_section = [pressure_offset + p*new_factor
                                 for p in pressure_section]
@@ -129,7 +157,7 @@ def model_pressure(start, end, flow, volume, pressure_offset):
     V_max = max(volume)
 
     factor = (Q_max)/(V_max)
-    print('factor: {}\n'.format(factor))
+    print('\nfactor: {}\n'.format(factor))
 
     # Find points
     # Pressure is estimated in small sections
@@ -149,7 +177,6 @@ def model_pressure(start, end, flow, volume, pressure_offset):
     # Looking at data in between points
     for index in points[:last_point]:
         if(index > start):
-
             pressure_section = estimate_pressure(flow,
                                                  volume,
                                                  start_point,
@@ -162,10 +189,9 @@ def model_pressure(start, end, flow, volume, pressure_offset):
             pressure_offset = pressure_section[-1]
             start_point = index
 
-    # Carry over last points
+    # Include any data after final point
     start_point = points[last_point - 1]
     if(start_point < end):
-
         pressure_section = estimate_pressure(flow,
                                              volume,
                                              start_point,
@@ -182,6 +208,9 @@ def model_pressure(start, end, flow, volume, pressure_offset):
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+#################
+# Main function #
+#################
 if(__name__ == '__main__'):
     # Definitions
     INSP = 0
@@ -191,226 +220,274 @@ if(__name__ == '__main__'):
     # Place to save plots
     plot_path = '/home/sarah/Documents/Spirometry/lungPlots/'
 
-    # Specify matlab files to use
-    #files = ['ManualDetection_Patient4_PM.mat']
-    #files = ['ManualDetection_Patient14_FM.mat']
-    #files = ['ManualDetection_Patient8_PM.mat']
-    files = ['ManualDetection_Patient17_FM.mat']
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    # Make the data path
-    path = '/home/sarah/Documents/Spirometry/data/ventilation/ManualDetection/'
-    files = [path + name for name in files]
-    filename = files[0]
+    # There are different data files with different
+    # data structures. This section extracts data
+    # from different file types.
+    using_ManualDetection_files = 1
+    using_PS_vs_NAVA_invasive_files = 1
 
-    data = load_mat_file(filename)
+    files = []
+    file_types = []
 
-    # Specify breaths to iterate through
-    first_breath = 0
-    last_breath = 480
+    # Declare file names for ManualDetection MV data
+    if(using_ManualDetection_files):
+        path = '/home/sarah/Documents/Spirometry/data/ventilation/ManualDetection/'
+        MD_filenames = [
+                        'ManualDetection_Patient4_PM.mat',
+                        'ManualDetection_Patient14_FM.mat',
+                        'ManualDetection_Patient17_FM.mat',
+                       ]
+        # Make full path names
+        # Add names to list of all data
+        # Add data typoe to data type list
+        files += [path + name for name in MD_filenames]
+        file_types += ['MD' for name in MD_filenames]
 
-    # Space to save results
-    ERa = [nan]*last_breath
-    ERs = [nan]*last_breath
+    # Declare file names for PS/Nava invasive ventilation data
+    if(using_PS_vs_NAVA_invasive_files):
+        path = '/home/sarah/Documents/Spirometry/data/ventilation/PS_vs_NAVA_invasive/'
+        PNI_filenames = [
+                         'BRU1-PS.mat',
+                        ]
+        # Make full path names
+        # Add names to list of all data
+        # Add data typoe to data type list
+        files += [path + name for name in PNI_filenames]
+        file_types += ['PNI' for name in PNI_filenames]
 
-    # Iterate through every breath in range specified
-    for breath in range(first_breath,last_breath):
-        print('\nBreath number {}\n~~~~~~~~~~~~~~~~'.format(breath))
+    # Go through every file declared
+    file_index = 0
+    for filename in files:
+        # Load data from file
+        mat_data = extr.load_mat_file(filename)
 
-        breath_data = ManualDetection_data(data, breath)
-        pressure = breath_data[0]
-        flow = breath_data[1]
+        # Determine which file type the data came from
+        file_type = file_types[file_index]
+        file_index += 1
 
-        # filter data
-        flow = hamming(flow, 20, 50, 10)
-        flow = real(flow).tolist()
+        # Data extraction for ManualDetection type data,
+        if(file_type == 'MD'):
+            last_breath = 480
+        # Data extraction for PS/NAVA invasive ventilation data,
+        elif(file_type == 'PNI'):
+            full_data = extr.PS_vs_NAVA_invasive_data(mat_data)
+            PNI_pressure = full_data[0]
+            PNI_flow = full_data[1]
+            last_breath = len(PNI_flow)
 
-        # Get the volume
-        volume = integral(flow, 50)
+        # Specify breaths to iterate through
+        first_breath = 0
 
-        # Get peep
-        peep_data = pressure[-len(pressure)/3:]
-        peep = sum(peep_data)/len(peep_data)
-        print('peep: {}'.format(peep))
+        # Make space to save results
+        ER_actual = [nan]*last_breath
+        ER_simulated = [nan]*last_breath
 
-        # Remove peep from pressure
-        # Offset for all pressure data is now 0
-        # Offset of estimated pressure will be 0
-        pressure = [p - peep for p in pressure]
+        # Iterate through every breath in range specified
+        for breath in range(first_breath,last_breath):
+            print('\nBreath number {}\n~~~~~~~~~~~~~~~~'.format(breath))
 
-        # Start of inspiration:
-        # This is at first crossing from negative flow to
-        # positive flow, or at the first index. Stop looking
-        # after max flow value. That point is definitely in
-        # inspiration. Work backwards from max flow, because
-        # start data can be noisy around zero crossing.
-        start_insp = 0
-        Q_max = max(flow)
-        Q_max_index = flow.index(Q_max)
-        i = Q_max_index
-        while(i > 0):
-            if(flow[i] >= 0 and flow[i-1] < 0):
-                start_insp = i
-                i = 0
-            i -= 1
+            # Data for each breath is extracted here depending on file type
+            if(file_type == 'MD'):
+                breath_data = extr.ManualDetection_data(mat_data, breath)
+                pressure = breath_data[0]
+                flow = breath_data[1]
+            elif(file_type == 'PNI'):
+                pressure = PNI_pressure[breath]
+                flow = PNI_flow[breath]
 
-        # End of inspiration:
-        # This is at the point where flow goes negative
-        # followed by a large drop in pressure
-        # If that's not a thing, take the last index
-        end_insp = len(flow) - 1
-        i = start_insp
-        while i < (len(flow)-15):
-            # Find negative flow for end of insp
-            if(flow[i] < 0 and (pressure[i+15] < peep+4)):
-                end_insp = i - 1
-                i = len(flow)
-            i += 1
+        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-        print('start_insp: {}'.format(start_insp))
-        print('end_insp: {}'.format(end_insp))
+            # filter data
+            flow = hamming(flow, 20, sampling_frequency, 10)
+            flow = real(flow).tolist()
 
-        # Check there are more than the minimum data points
-        # needed for least squares in inspiration and that
-        # flow starts close to zero.
-        # If either condition isn't met, skip the dataset; It sucks.
-        if(end_insp - start_insp <= 3
-        or flow[start_insp] > 0.1):
-            print('Bad data, ignoring')
+            # Get the volume
+            volume = integral(flow, sampling_frequency)
 
-        else:
-            # Crop data to insp range
-            flw = flow[start_insp:end_insp]
-            pres = pressure[start_insp:end_insp]
-            vol = volume[start_insp:end_insp]
+            # Get peep
+            peep_data = pressure[-len(pressure)/3:]
+            peep = sum(peep_data)/len(peep_data)
+            print('peep: {}'.format(peep))
 
-            # Estimate the driving pressure
-            # Guessing P = E * integral(Q) {approx}
-            pressure_offset = 0
-            pressure_estimation = model_pressure(start_insp,
-                                                 end_insp,
-                                                 flow,
-                                                 volume,
-                                                 pressure_offset)
+            # Start of inspiration:
+            # This is at first crossing from negative flow to
+            # positive flow, or at the first index. Stop looking
+            # after max flow value. That point is definitely in
+            # inspiration. Work backwards from max flow, because
+            # start data can be noisy around zero crossing.
+            start_insp = 0
+            Q_max = max(flow)
+            Q_max_index = flow.index(Q_max)
+            i = Q_max_index
+            while(i > 0):
+                if(flow[i] >= 0 and flow[i-1] < 0):
+                    start_insp = i
+                    i = 0
+                i -= 1
 
-            pressure_offset = pressure_estimation[-1]
-            exp_pressure_estimation = model_pressure(start_insp,
+            # End of inspiration:
+            # This is at the point where flow goes negative
+            # followed by a large drop in pressure
+            # If that's not a thing, take the last index
+            end_insp = len(flow) - 1
+            i = start_insp
+            while i < (len(flow)-15):
+                # Find negative flow for end of insp
+                if(flow[i] < 0 and (pressure[i+15] < peep+4)):
+                    end_insp = i - 1
+                    i = len(flow)
+                i += 1
+
+            print('start_insp: {}'.format(start_insp))
+            print('end_insp: {}'.format(end_insp))
+
+            # Remove peep from pressure
+            # Offset for all pressure data is now 0
+            # Offset of estimated pressure will be 0
+            pressure = [p - peep for p in pressure]
+
+            # Check there are more than the minimum data points
+            # needed for least squares in inspiration and that
+            # flow starts close to zero.
+            # If either condition isn't met, skip the dataset; It sucks.
+            if(end_insp - start_insp <= 3
+            or flow[start_insp] > 0.1):
+                print('Bad data, ignoring')
+
+            else:
+                # Crop data to insp range
+                flw = flow[start_insp:end_insp]
+                pres = pressure[start_insp:end_insp]
+                vol = volume[start_insp:end_insp]
+
+                # Estimate the driving pressure
+                # Guessing P = E * integral(Q) {approx}
+                pressure_offset = 0
+                pressure_estimation = model_pressure(start_insp,
                                                      end_insp,
-                                                     flow,
-                                                     volume,
+                                                     flow[:end_insp],
+                                                     volume[:end_insp],
                                                      pressure_offset)
 
-            # Get parameters from estimated pressure
-            dependent = array([pressure_estimation])
-            independent = array([flw, vol])
-            res = lstsq(independent.T, dependent.T)
-            E_est = res[0][1][0]
-            R_est = res[0][0][0]
+                #pressure_offset = pressure_estimation[-1]
+                #exp_pressure_estimation = model_pressure(end_insp,
+                                                         #len(flow),
+                                                         #flow[end_insp:],
+                                                         #volume[:end_insp],
+                                                         #pressure_offset)
 
-            print('E_est: {}'.format(E_est))
-            print('R_est: {}'.format(R_est))
-            print('R_est/E_est: {}'.format(R_est/E_est))
-            print('')
+                # Get parameters from estimated pressure
+                dependent = array([pressure_estimation])
+                independent = array([flw, vol])
+                res = lstsq(independent.T, dependent.T)
+                E_est = res[0][1][0]
+                R_est = res[0][0][0]
 
-            # Using the estimated pressure, E should = 1.
-            # If not, there was an error in the magnitude of estimate.
-            # Divide pressure estimate by E_est to correct for error.
-            # This totally assumes the shape is correct
-            pressure_estimation_updated = [p/E_est for p in pressure_estimation]
+                print('E_est: {}'.format(E_est))
+                print('R_est: {}'.format(R_est))
+                print('R_est/E_est: {}'.format(R_est/E_est))
+                print('')
 
-            # Update changes to parameters
-            R_est /= E_est
-            E_est /= E_est
+                # Using the estimated pressure, E should = 1.
+                # If not, there was an error in the magnitude of estimate.
+                # Divide pressure estimate by E_est to correct for error.
+                # This totally assumes the shape is correct
+                pressure_estimation_updated = [p/E_est for p in pressure_estimation]
 
-            print('E_updated: {}'.format(E_est))
-            print('R_updated: {}'.format(R_est))
-            print('R_updated/E_updated: {}'.format(R_est/E_est))
-            print('')
+                # Update changes to parameters
+                R_est /= E_est
+                E_est /= E_est
 
-            # Forward simulate flow from pressure estimate and parameters
-            Q_orig = [(pressure_estimation_updated[i] - E_est*vol[i])/R_est
-                     for i in range(len(vol))]
+                print('E_updated: {}'.format(E_est))
+                print('R_updated: {}'.format(R_est))
+                print('R_updated/E_updated: {}'.format(R_est/E_est))
+                print('')
 
-            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            ### THIS SECTION USES PRESSURE DATA ###
+                # Forward simulate flow from pressure estimate and parameters
+                Q_orig = [(pressure_estimation_updated[i] - E_est*vol[i])/R_est
+                         for i in range(len(vol))]
 
-            # Find R and E directly from pressure and flow
-            # and volume in the single compartment model
-            dependent = array([pres])
-            independent = array([flw, vol])
-            res = lstsq(independent.T, dependent.T)
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                ### THIS SECTION USES PRESSURE DATA ###
 
-            E = res[0][1][0]
-            R = res[0][0][0]
+                # Find R and E directly from pressure and flow
+                # and volume in the single compartment model
+                dependent = array([pres])
+                independent = array([flw, vol])
+                res = lstsq(independent.T, dependent.T)
 
-            print('E: {}'.format(E))
-            print('R: {}'.format(R))
-            print('R/E actual: {}'.format(R/E))
-            print('')
+                E = res[0][1][0]
+                R = res[0][0][0]
 
-            # Remake pressure and flow from parameters
-            remade_pres = [E*vol[i] + R*flw[i] for i in range(len(flw))]
-            remade_flow = [(pres[i] - E*vol[i])/R for i in range(len(flw))]
+                print('E: {}'.format(E))
+                print('R: {}'.format(R))
+                print('R/E actual: {}'.format(R/E))
+                print('')
 
-            # Scale the pressure up
-            scaling = E
-            pressure_estimation_scaled_orig = [p * scaling
-                                               for p in pressure_estimation]
-            pressure_estimation_scaled_updated = [p * scaling
-                                                  for p in pressure_estimation_updated]
+                # Remake pressure and flow from parameters
+                remade_pres = [E*vol[i] + R*flw[i] for i in range(len(flw))]
+                remade_flow = [(pres[i] - E*vol[i])/R for i in range(len(flw))]
 
-            ERa[breath] = (R/E)
-            ERs[breath] = (R_est/E_est)
+                # Scale the pressure up
+                scaling = E
+                pressure_estimation_scaled_orig = [p * scaling
+                                                   for p in pressure_estimation]
+                pressure_estimation_scaled_updated = [p * scaling
+                                                      for p in pressure_estimation_updated]
 
-            # plot stuff
-            if(0):
-                f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+                ER_actual[breath] = (R/E)
+                ER_simulated[breath] = (R_est/E_est)
 
-                ax1.plot(pressure[0:end_insp], 'b-', linewidth=3)
-                ax1.plot(range(start_insp,end_insp), remade_pres, 'c-')
-                ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'r:')
-                ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_updated, 'm-')
-                #ax1.plot(range(start_insp,end_insp), P_error_scaled, 'k-')
-                ax1.legend([
-                            'Pressure',
-                            'Forward sim from data',
-                            'Original estimate (scaled)',
-                            'Updated estimate (scaled)',
-                            'Estimate after iteration (scaled)'
-                            ], loc=4)
+                # plot stuff
+                if(1):
+                    f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
 
-                ax2.plot(flow[0:end_insp], 'r-', linewidth=3)
-                ax2.plot(range(start_insp,end_insp), remade_flow, 'b-')
-                ax2.plot(range(start_insp,end_insp), Q_orig, 'm*-')
-                #ax2.plot(range(start_insp,end_insp), flow_after_iteration, 'k-', linewidth=2)
+                    ax1.plot(pressure[0:end_insp], 'b-', linewidth=3)
+                    ax1.plot(range(start_insp,end_insp), remade_pres, 'c-')
+                    ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'r:')
+                    ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_updated, 'm-')
+                    ax1.legend([
+                                'Pressure',
+                                'Forward sim from data',
+                                'Original estimate (scaled)',
+                                'Updated estimate (scaled)',
+                                'Estimate after iteration (scaled)'
+                                ], loc=4)
 
-                #ax2.plot(range(start_insp,end_insp), Q_error, 'x-', color='#f07203')
-                ax2.legend([
-                            'Flow',
-                            'Forward sim from data',
-                            'Forward sim from estimate',
-                            'Forward sim after iteration',
-                            'Error in flow'
-                            ])
+                    ax2.plot(flow[0:end_insp], 'r-', linewidth=3)
+                    ax2.plot(range(start_insp,end_insp), remade_flow, 'b-')
+                    ax2.plot(range(start_insp,end_insp), Q_orig, 'm*-')
 
-                ax3.plot(volume[0:end_insp],'yx-')
-                ax3.legend([
-                            'Volume'
-                            ])
+                    ax2.legend([
+                                'Flow',
+                                'Forward sim from data',
+                                'Forward sim from estimate',
+                                'Forward sim after iteration',
+                                'Error in flow'
+                                ])
 
-                ax1.grid()
-                ax2.grid()
-                ax3.grid()
-                plt.show()
+                    ax3.plot(volume[0:end_insp],'yx-')
+                    ax3.legend([
+                                'Volume'
+                                ])
 
-    if(1):
-        f, (ax3) = plt.subplots(1, sharex=True)
+                    ax1.grid()
+                    ax2.grid()
+                    ax3.grid()
+                    plt.show()
 
-        ax3.plot(ERa, 'or')
-        ax3.plot(ERs, '^b')
-        ax3.legend(['Direct', 'Modelled'])
-        ax3.set_title('R/E')
-        ax3.grid()
+        if(1):
+            f, (ax3) = plt.subplots(1, sharex=True)
 
-        plt.show()
+            ax3.plot(ER_actual, 'or')
+            ax3.plot(ER_simulated, '^b')
+            ax3.legend(['Directly calculated from data', 'Estimated'])
+            ax3.set_ylabel('Resistance/Elastance')
+            ax3.set_xlabel('Breath')
+            ax3.grid()
+
+            plt.show()
