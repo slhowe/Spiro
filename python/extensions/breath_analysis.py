@@ -45,7 +45,7 @@ class BreathData:
 
         self.time = [t/float(Fs) for t in range(self.insp_length + self.exp_length)]
 
-def split_breaths(data, peak_height=0.1, plot=False):
+def split_breaths(data, peak_height=0.1, Fs=125, filt=True, plot=False):
     ''' Returns array of start and end indices for
         whole breaths in the data set.
         Function doesn't handle data that is noisy
@@ -121,9 +121,11 @@ def split_breaths(data, peak_height=0.1, plot=False):
     midpoints = []
     endpoints = []
 
-    # Filter the shit out of the signal
-    data = hamming(data, 5, 125, 10, plot)
-    data = real(data).tolist()
+    if(filt):
+        # Filter the shit out of the signal
+        data = hamming(data, 5, Fs, 10, plot)
+        data = real(data).tolist()
+
     # Find the crossing points and check they are good
     find_crossings_and_midpoints(data, startpoints, midpoints, endpoints)
     final_breaths = check_crossings_valid(data, startpoints, midpoints, endpoints, peak_height)
@@ -149,9 +151,9 @@ def split_breaths(data, peak_height=0.1, plot=False):
 
 def calc_flow_delay(pressure, flow, Fs=125, plot=False):
     # Filter the data heaps and flip pressure
-    flow = semi_gauss_lp_filter(flow, 125, 0.5)
+    flow = semi_gauss_lp_filter(flow, Fs, 0.5)
     flow[0] = 0
-    pressure = semi_gauss_lp_filter(pressure, 125, 0.5)
+    pressure = semi_gauss_lp_filter(pressure, Fs, 0.5)
     pressure = [-p for p in pressure]
     pressure[0] = 0
 
