@@ -107,6 +107,7 @@ def model_pressure(start, end, flow, volume, pressure_offset):
     def estimate_pressure(flow, volume, start, end, pressure_offset, factor):
         # Looking at a small section of flow
         flow_section = flow[start:end]
+        vol_section = volume[start:end]
 
         # Gradient of flow in section
         flow_gradient = (flow_section[-1] - flow_section[0])/(len(flow_section)/50.0)
@@ -122,9 +123,9 @@ def model_pressure(start, end, flow, volume, pressure_offset):
         # Jump size is very dependent on the rate of change of flow
         # Quicker rise time gives larger pressure jump
         if(flow_gradient > 0):
-            print('flow_gradient: {}'.format(flow_gradient))
             pressure_section = integral(flow_section, 50)
-            pressure_section = [pressure_offset + p*flow_gradient*12
+            print(flow_gradient)
+            pressure_section = [pressure_offset + p*flow_gradient
                                 for p in pressure_section]
 
         # Flow decreasing
@@ -139,13 +140,12 @@ def model_pressure(start, end, flow, volume, pressure_offset):
             # of pressure when flow decreasing
             # 0.6 is a fudge-factor. Examples give
             # a range 0.5-0.7 so 0.6 was chosen
-            new_factor = (1 - (factor - 1)/2) * 0.6
+            new_factor = (1 - (factor - 1)/2)
             if(new_factor < 0):
                 new_factor = 0
-            print('new factor: {}'.format(new_factor))
 
             pressure_section = integral(flow_section, 50)
-            pressure_section = [pressure_offset + p*new_factor
+            pressure_section = [pressure_offset + p*new_factor*0.6
                                 for p in pressure_section]
 
         return pressure_section
@@ -182,7 +182,7 @@ def model_pressure(start, end, flow, volume, pressure_offset):
                                                  start_point,
                                                  index,
                                                  pressure_offset,
-                                                 factor
+                                                 factor,
                                                  )
             # Update pressure estimate and pressure offset
             pressure_estimation[start_point-start:index-start] = pressure_section
@@ -197,7 +197,7 @@ def model_pressure(start, end, flow, volume, pressure_offset):
                                              start_point,
                                              end,
                                              pressure_offset,
-                                             factor
+                                             factor,
                                              )
         # Update pressure estimate
         pressure_estimation[start_point-start:] = pressure_section
@@ -212,6 +212,8 @@ def model_pressure(start, end, flow, volume, pressure_offset):
 # Main function #
 #################
 if(__name__ == '__main__'):
+    fac = []
+    pnt = []
     # Definitions
     INSP = 0
     EXP = 1
@@ -225,8 +227,9 @@ if(__name__ == '__main__'):
     # There are different data files with different
     # data structures. This section extracts data
     # from different file types.
-    using_ManualDetection_files = 1
+    using_ManualDetection_files = 0
     using_PS_vs_NAVA_invasive_files = 1
+    using_PS_vs_NAVA_non_invasive_files = 0
 
     files = []
     file_types = []
@@ -250,12 +253,42 @@ if(__name__ == '__main__'):
         path = '/home/sarah/Documents/Spirometry/data/ventilation/PS_vs_NAVA_invasive/'
         PNI_filenames = [
                          'BRU1-PS.mat',
+                         'BRU2-PS.mat',
+                         'BRU4-PS.mat',
+                         'BRU6-PS.mat',
+                         'BRU14-PS.mat',
+                         'GE04-PS.mat',
+                         'GE05-PS.mat',
+                         'GE11-PS.mat',
+                         'GE21-PS.mat',
                         ]
         # Make full path names
         # Add names to list of all data
         # Add data typoe to data type list
         files += [path + name for name in PNI_filenames]
         file_types += ['PNI' for name in PNI_filenames]
+
+    # Declare file names for PS/NAVA non-invasive ventilation data
+    if(using_PS_vs_NAVA_non_invasive_files):
+        path = '/home/sarah/Documents/Spirometry/data/ventilation/PS_vs_NAVA_non_invasive/'
+        PNI_filenames = [
+                        'NIV_BRU01.mat',
+                        'NIV_BRU02.mat',
+                        'NIV_BRU03.mat',
+                        'NIV_BRU04.mat',
+                        'NIV_BRU05.mat',
+                        'NIV_BRU06.mat',
+                        'NIV_BRU07.mat',
+                        'NIV_BRU08.mat',
+                        'NIV_BRU09.mat',
+                        'NIV_BRU010.mat',
+                       ]
+        # Make full path names
+        # Add names to list of all data
+        # Add data typoe to data type list
+        files += [path + name for name in PNI_filenames]
+        file_types += ['PNI' for name in PNI_filenames]
+
 
     # Go through every file declared
     file_index = 0
@@ -279,6 +312,7 @@ if(__name__ == '__main__'):
 
         # Specify breaths to iterate through
         first_breath = 0
+        #last_breath = 40
 
         # Make space to save results
         ER_actual = [nan]*last_breath
@@ -306,11 +340,6 @@ if(__name__ == '__main__'):
             # Get the volume
             volume = integral(flow, sampling_frequency)
 
-            # Get peep
-            peep_data = pressure[-len(pressure)/3:]
-            peep = sum(peep_data)/len(peep_data)
-            print('peep: {}'.format(peep))
-
             # Start of inspiration:
             # This is at first crossing from negative flow to
             # positive flow, or at the first index. Stop looking
@@ -326,6 +355,13 @@ if(__name__ == '__main__'):
                     start_insp = i
                     i = 0
                 i -= 1
+
+            # Get peep
+            #peep_data = pressure[-len(pressure)/3:]
+            #peep = sum(peep_data)/len(peep_data)
+            #peep -= 0.1
+            peep = pressure[start_insp]
+            print('peep: {}'.format(peep))
 
             # End of inspiration:
             # This is at the point where flow goes negative
@@ -369,7 +405,8 @@ if(__name__ == '__main__'):
                                                      end_insp,
                                                      flow[:end_insp],
                                                      volume[:end_insp],
-                                                     pressure_offset)
+                                                     pressure_offset,
+                                                     )
 
                 #pressure_offset = pressure_estimation[-1]
                 #exp_pressure_estimation = model_pressure(end_insp,
@@ -443,13 +480,14 @@ if(__name__ == '__main__'):
                 ER_simulated[breath] = (R_est/E_est)
 
                 # plot stuff
-                if(1):
+                if(0):
                     f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
 
                     ax1.plot(pressure[0:end_insp], 'b-', linewidth=3)
                     ax1.plot(range(start_insp,end_insp), remade_pres, 'c-')
                     ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'r:')
                     ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_updated, 'm-')
+                    #ax1.plot(range(start_insp,end_insp), P_error_scaled, 'k-')
                     ax1.legend([
                                 'Pressure',
                                 'Forward sim from data',
@@ -461,7 +499,9 @@ if(__name__ == '__main__'):
                     ax2.plot(flow[0:end_insp], 'r-', linewidth=3)
                     ax2.plot(range(start_insp,end_insp), remade_flow, 'b-')
                     ax2.plot(range(start_insp,end_insp), Q_orig, 'm*-')
+                    #ax2.plot(range(start_insp,end_insp), flow_after_iteration, 'k-', linewidth=2)
 
+                    #ax2.plot(range(start_insp,end_insp), Q_error, 'x-', color='#f07203')
                     ax2.legend([
                                 'Flow',
                                 'Forward sim from data',
@@ -471,14 +511,66 @@ if(__name__ == '__main__'):
                                 ])
 
                     ax3.plot(volume[0:end_insp],'yx-')
+                    ax3.plot([p/E for p in pressure[:end_insp]])
+
+                    ax3.plot([(pressure[i]/E)/volume[i] for i in range(len(pres))])
                     ax3.legend([
-                                'Volume'
+                                'Volume',
+                                'P/E',
+                                'P/E/V = scaling',
                                 ])
 
                     ax1.grid()
                     ax2.grid()
                     ax3.grid()
                     plt.show()
+
+                # Find first flow shoulder
+                half_flow = flow[start_insp:(end_insp - start_insp)/2]
+                if(len(half_flow) > 2):
+                    half_grad = (half_flow[-1] - half_flow[0])/(len(half_flow))
+                    flat_flow = [half_flow[i] - half_grad*i for i in range(len(half_flow))]
+                    Q_shoulder = max(flat_flow)
+                    Q_shoulder_index = flat_flow.index(Q_shoulder)
+                    Q_shoulder_index += start_insp
+                    shoulder_grad = (flow[start_insp]-Q_shoulder)/(start_insp-Q_shoulder_index)
+
+
+                    #plt.plot(flow[:end_insp])
+                    #plt.plot(Q_shoulder_index, flow[Q_shoulder_index], 'ro')
+                    #plt.show()
+
+                    V_max = max(volume)
+                    factor = (Q_max)/(V_max)
+
+                    fac.append(E)
+                    Q_shoulder_index -= 0
+                    th = (pressure[Q_shoulder_index])/volume[Q_shoulder_index]
+                    pnt.append(th)
+                    print('\nfac: {}\n'.format(th))
+                    print('\nshoulder_grad: {}\n'.format(shoulder_grad))
+
+                    #plt.plot([p/E for p in pressure[:Q_shoulder_index + 2]])
+                    #plt.plot([volume[i]*th for i in range(Q_shoulder_index + 2)])
+                    #plt.plot([volume[i]*(flow[i]*3*factor) for i in range(Q_shoulder_index + 2)])
+                    #plt.legend(['pressure/E','test curve', 'trying shit'])
+                    #plt.show()
+        dependent = array([pnt])
+        independent = array([fac, [1]*len(fac)])
+        res = lstsq(independent.T, dependent.T)
+        line = [res[0][1][0] + res[0][0][0]*i for i in range(5)]
+        print()
+        print('grad: {}'.format(res[0][0][0]))
+        print('offs: {}'.format(res[0][1][0]))
+
+        plt.plot(fac, pnt, 'go')
+        plt.plot(line)
+        plt.ylabel('Scaling at peak point')
+        plt.xlabel('test term')
+        plt.show()
+
+        fac = []
+        pnt = []
 
         if(1):
             f, (ax3) = plt.subplots(1, sharex=True)
@@ -491,3 +583,4 @@ if(__name__ == '__main__'):
             ax3.grid()
 
             plt.show()
+
