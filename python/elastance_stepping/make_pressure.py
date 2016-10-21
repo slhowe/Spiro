@@ -111,6 +111,7 @@ def model_pressure(start, end, flow, volume, pressure_offset):
 
         # Gradient of flow in section
         flow_gradient = (flow_section[-1] - flow_section[0])/(len(flow_section)/50.0)
+        print('flow_gradient: {}'.format(flow_gradient))
 
        # Want to flip the gradient if flow is negative
         # This will subtract a slope from the pressure
@@ -124,7 +125,6 @@ def model_pressure(start, end, flow, volume, pressure_offset):
         # Quicker rise time gives larger pressure jump
         if(flow_gradient > 0):
             pressure_section = integral(flow_section, 50)
-            print(flow_gradient)
             pressure_section = [pressure_offset + p*flow_gradient
                                 for p in pressure_section]
 
@@ -143,6 +143,7 @@ def model_pressure(start, end, flow, volume, pressure_offset):
             new_factor = (1 - (factor - 1)/2)
             if(new_factor < 0):
                 new_factor = 0
+            print('new_factor: {}'.format(new_factor))
 
             pressure_section = integral(flow_section, 50)
             pressure_section = [pressure_offset + p*new_factor*0.6
@@ -227,7 +228,7 @@ if(__name__ == '__main__'):
     # There are different data files with different
     # data structures. This section extracts data
     # from different file types.
-    using_ManualDetection_files = 0
+    using_ManualDetection_files = 1
     using_PS_vs_NAVA_invasive_files = 1
     using_PS_vs_NAVA_non_invasive_files = 0
 
@@ -312,7 +313,7 @@ if(__name__ == '__main__'):
 
         # Specify breaths to iterate through
         first_breath = 0
-        #last_breath = 40
+        #last_breath = 20
 
         # Make space to save results
         ER_actual = [nan]*last_breath
@@ -376,8 +377,32 @@ if(__name__ == '__main__'):
                     i = len(flow)
                 i += 1
 
+           # Find first flow shoulder
+            Q_shoulder = Q_max
+            Q_shoulder_index = Q_max_index
+            half_flow = flow[start_insp:len(flow)/8]
+            if(len(half_flow) > 2):
+                half_grad = (half_flow[-1] - half_flow[0])/(len(half_flow))
+                flat_flow = [half_flow[i] - half_grad*i for i in range(len(half_flow))]
+                Q_shoulder = max(flat_flow)
+                Q_shoulder_index = flat_flow.index(Q_shoulder)
+                Q_shoulder_index += start_insp
+            #shoulder_grad = (flow[start_insp]-Q_shoulder)/(start_insp-Q_shoulder_index)
+            start_insp = Q_shoulder_index
+            print('shoulder: {}'.format(Q_shoulder_index))
+
+            start = (end_insp - start_insp)/2
+            end_insp = (end_insp - start_insp)*2/3
+            start_insp = start
+            peep = pressure[start_insp]
+
             print('start_insp: {}'.format(start_insp))
             print('end_insp: {}'.format(end_insp))
+
+
+            #plt.plot(flow[:end_insp])
+            #plt.plot(Q_shoulder_index, flow[Q_shoulder_index], 'ro')
+            #plt.show()
 
             # Remove peep from pressure
             # Offset for all pressure data is now 0
@@ -388,8 +413,8 @@ if(__name__ == '__main__'):
             # needed for least squares in inspiration and that
             # flow starts close to zero.
             # If either condition isn't met, skip the dataset; It sucks.
-            if(end_insp - start_insp <= 3
-            or flow[start_insp] > 0.1):
+            if(end_insp - start_insp <= 3):
+            #or flow[start_insp] > 0.1):
                 print('Bad data, ignoring')
 
             else:
@@ -525,52 +550,36 @@ if(__name__ == '__main__'):
                     ax3.grid()
                     plt.show()
 
-                # Find first flow shoulder
-                half_flow = flow[start_insp:(end_insp - start_insp)/2]
-                if(len(half_flow) > 2):
-                    half_grad = (half_flow[-1] - half_flow[0])/(len(half_flow))
-                    flat_flow = [half_flow[i] - half_grad*i for i in range(len(half_flow))]
-                    Q_shoulder = max(flat_flow)
-                    Q_shoulder_index = flat_flow.index(Q_shoulder)
-                    Q_shoulder_index += start_insp
-                    shoulder_grad = (flow[start_insp]-Q_shoulder)/(start_insp-Q_shoulder_index)
-
-
-                    #plt.plot(flow[:end_insp])
-                    #plt.plot(Q_shoulder_index, flow[Q_shoulder_index], 'ro')
-                    #plt.show()
-
                     V_max = max(volume)
                     factor = (Q_max)/(V_max)
 
-                    fac.append(E)
-                    Q_shoulder_index -= 0
-                    th = (pressure[Q_shoulder_index])/volume[Q_shoulder_index]
-                    pnt.append(th)
-                    print('\nfac: {}\n'.format(th))
-                    print('\nshoulder_grad: {}\n'.format(shoulder_grad))
+                    #fac.append(E)
+                    #th = (pressure[Q_shoulder_index])/volume[Q_shoulder_index]
+                    #pnt.append(th)
+                    #print('\nfac: {}\n'.format(th))
+                    #print('\nshoulder_grad: {}\n'.format(shoulder_grad))
 
                     #plt.plot([p/E for p in pressure[:Q_shoulder_index + 2]])
                     #plt.plot([volume[i]*th for i in range(Q_shoulder_index + 2)])
                     #plt.plot([volume[i]*(flow[i]*3*factor) for i in range(Q_shoulder_index + 2)])
                     #plt.legend(['pressure/E','test curve', 'trying shit'])
                     #plt.show()
-        dependent = array([pnt])
-        independent = array([fac, [1]*len(fac)])
-        res = lstsq(independent.T, dependent.T)
-        line = [res[0][1][0] + res[0][0][0]*i for i in range(5)]
-        print()
-        print('grad: {}'.format(res[0][0][0]))
-        print('offs: {}'.format(res[0][1][0]))
+        #dependent = array([pnt])
+        #independent = array([fac, [1]*len(fac)])
+        #res = lstsq(independent.T, dependent.T)
+        #line = [res[0][1][0] + res[0][0][0]*i for i in range(5)]
+        #print()
+        #print('grad: {}'.format(res[0][0][0]))
+        #print('offs: {}'.format(res[0][1][0]))
 
-        plt.plot(fac, pnt, 'go')
-        plt.plot(line)
-        plt.ylabel('Scaling at peak point')
-        plt.xlabel('test term')
-        plt.show()
+        #plt.plot(fac, pnt, 'go')
+        #plt.plot(line)
+        #plt.ylabel('Scaling at peak point')
+        #plt.xlabel('test term')
+        #plt.show()
 
-        fac = []
-        pnt = []
+        #fac = []
+        #pnt = []
 
         if(1):
             f, (ax3) = plt.subplots(1, sharex=True)
