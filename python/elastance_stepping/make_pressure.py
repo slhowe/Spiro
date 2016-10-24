@@ -138,15 +138,13 @@ def model_pressure(start, end, flow, volume, pressure_offset):
         else:
             # Define factor used to control slope
             # of pressure when flow decreasing
-            # 0.6 is a fudge-factor. Examples give
-            # a range 0.5-0.7 so 0.6 was chosen
-            new_factor = (1 - (factor - 1)/2)
-            if(new_factor < 0):
-                new_factor = 0
-            print('new_factor: {}'.format(new_factor))
+            #new_factor = (1 - (factor - 1)/2)
+            #if(new_factor < 0):
+                #new_factor = 0
+            #print('new_factor: {}'.format(new_factor))
 
             pressure_section = integral(flow_section, 50)
-            pressure_section = [pressure_offset + p*new_factor*0.6
+            pressure_section = [pressure_offset + p*factor
                                 for p in pressure_section]
 
         return pressure_section
@@ -229,6 +227,7 @@ if(__name__ == '__main__'):
     # data structures. This section extracts data
     # from different file types.
     using_ManualDetection_files = 1
+    using_dated_files = 0
     using_PS_vs_NAVA_invasive_files = 1
     using_PS_vs_NAVA_non_invasive_files = 0
 
@@ -239,40 +238,56 @@ if(__name__ == '__main__'):
     if(using_ManualDetection_files):
         path = '/home/sarah/Documents/Spirometry/data/ventilation/ManualDetection/'
         MD_filenames = [
-                        'ManualDetection_Patient4_PM.mat',
-                        'ManualDetection_Patient14_FM.mat',
+                        #'ManualDetection_Patient4_PM.mat',
+                        #'ManualDetection_Patient14_FM.mat',
                         'ManualDetection_Patient17_FM.mat',
                        ]
         # Make full path names
         # Add names to list of all data
-        # Add data typoe to data type list
+        # Add data type to data type list
         files += [path + name for name in MD_filenames]
         file_types += ['MD' for name in MD_filenames]
 
-    # Declare file names for PS/Nava invasive ventilation data
+    # Declare file names for dated data
+    if(using_dated_files):
+        path = '/home/sarah/Documents/Spirometry/data/ventilation/ManualDetection/'
+        DF_filenames = [
+                        '12_11_08.mat',
+                        '13_11_21.mat',
+                        '9_04_08.mat',
+                        '9_04_09.mat',
+                        '9_04_10A.mat',
+                       ]
+        # Make full path names
+        # Add names to list of all data
+        # Add data type to data type list
+        files += [path + name for name in DF_filenames]
+        file_types += ['DF' for name in DF_filenames]
+
+   # Declare file names for PS/Nava invasive ventilation data
     if(using_PS_vs_NAVA_invasive_files):
         path = '/home/sarah/Documents/Spirometry/data/ventilation/PS_vs_NAVA_invasive/'
         PNI_filenames = [
                          'BRU1-PS.mat',
-                         'BRU2-PS.mat',
+                         'BRU2-PS.mat', # Need to move further forward
                          'BRU4-PS.mat',
-                         'BRU6-PS.mat',
+                         'BRU6-PS.mat', # Need to move further forward
                          'BRU14-PS.mat',
-                         'GE04-PS.mat',
+                         'GE04-PS.mat', # Need to move further forward
                          'GE05-PS.mat',
-                         'GE11-PS.mat',
+                         'GE11-PS.mat', # Need to move further forward
                          'GE21-PS.mat',
                         ]
         # Make full path names
         # Add names to list of all data
-        # Add data typoe to data type list
+        # Add data type to data type list
         files += [path + name for name in PNI_filenames]
         file_types += ['PNI' for name in PNI_filenames]
 
     # Declare file names for PS/NAVA non-invasive ventilation data
     if(using_PS_vs_NAVA_non_invasive_files):
         path = '/home/sarah/Documents/Spirometry/data/ventilation/PS_vs_NAVA_non_invasive/'
-        PNI_filenames = [
+        PNN_filenames = [
                         'NIV_BRU01.mat',
                         'NIV_BRU02.mat',
                         'NIV_BRU03.mat',
@@ -286,9 +301,9 @@ if(__name__ == '__main__'):
                        ]
         # Make full path names
         # Add names to list of all data
-        # Add data typoe to data type list
-        files += [path + name for name in PNI_filenames]
-        file_types += ['PNI' for name in PNI_filenames]
+        # Add data type to data type list
+        files += [path + name for name in PNN_filenames]
+        file_types += ['PNI' for name in PNN_filenames]
 
 
     # Go through every file declared
@@ -378,31 +393,28 @@ if(__name__ == '__main__'):
                 i += 1
 
            # Find first flow shoulder
-            Q_shoulder = Q_max
-            Q_shoulder_index = Q_max_index
-            half_flow = flow[start_insp:len(flow)/8]
-            if(len(half_flow) > 2):
-                half_grad = (half_flow[-1] - half_flow[0])/(len(half_flow))
-                flat_flow = [half_flow[i] - half_grad*i for i in range(len(half_flow))]
-                Q_shoulder = max(flat_flow)
-                Q_shoulder_index = flat_flow.index(Q_shoulder)
-                Q_shoulder_index += start_insp
-            #shoulder_grad = (flow[start_insp]-Q_shoulder)/(start_insp-Q_shoulder_index)
-            start_insp = Q_shoulder_index
-            print('shoulder: {}'.format(Q_shoulder_index))
+            shoulder = Q_max
+            shoulder_index = Q_max_index
+            half_pres= pressure[start_insp:len(pressure)/8]
+            if(len(half_pres) > 2):
+                half_grad = (half_pres[-1] - half_pres[0])/(len(half_pres))
+                flat_pres = [half_pres[i] - half_grad*i for i in range(len(half_pres))]
+                shoulder = max(flat_pres)
+                shoulder_index = flat_pres.index(shoulder)
+                shoulder_index += start_insp + 2
+            start_insp = shoulder_index
+            print('shoulder: {}'.format(shoulder_index))
 
-            start = (end_insp - start_insp)/2
-            end_insp = (end_insp - start_insp)*2/3
+            start = start_insp + (end_insp - start_insp)*1/5
+            end = end_insp - end_insp*1/8
+            peep = pressure[start]
+
             start_insp = start
-            peep = pressure[start_insp]
 
             print('start_insp: {}'.format(start_insp))
             print('end_insp: {}'.format(end_insp))
-
-
-            #plt.plot(flow[:end_insp])
-            #plt.plot(Q_shoulder_index, flow[Q_shoulder_index], 'ro')
-            #plt.show()
+            print('start: {}'.format(start))
+            print('end: {}'.format(end))
 
             # Remove peep from pressure
             # Offset for all pressure data is now 0
@@ -410,26 +422,25 @@ if(__name__ == '__main__'):
             pressure = [p - peep for p in pressure]
 
             # Check there are more than the minimum data points
-            # needed for least squares in inspiration and that
-            # flow starts close to zero.
-            # If either condition isn't met, skip the dataset; It sucks.
-            if(end_insp - start_insp <= 3):
-            #or flow[start_insp] > 0.1):
+            # needed for least squares in inspiration and range
+            # for estimating data
+            if(end_insp - start_insp <= 3
+            or end - start <= 3):
                 print('Bad data, ignoring')
 
             else:
                 # Crop data to insp range
-                flw = flow[start_insp:end_insp]
-                pres = pressure[start_insp:end_insp]
-                vol = volume[start_insp:end_insp]
+                flw = flow[start:end]
+                pres = pressure[start:end]
+                vol = volume[start:end]
 
                 # Estimate the driving pressure
                 # Guessing P = E * integral(Q) {approx}
                 pressure_offset = 0
-                pressure_estimation = model_pressure(start_insp,
-                                                     end_insp,
-                                                     flow[:end_insp],
-                                                     volume[:end_insp],
+                pressure_estimation = model_pressure(start,
+                                                     end,
+                                                     flow[:end],
+                                                     volume[:end],
                                                      pressure_offset,
                                                      )
 
@@ -470,7 +481,8 @@ if(__name__ == '__main__'):
                 # Forward simulate flow from pressure estimate and parameters
                 Q_orig = [(pressure_estimation_updated[i] - E_est*vol[i])/R_est
                          for i in range(len(vol))]
-
+                P_est = [volume[i]*E_est + flow[i]*R_est
+                        for i in range(len(flow)/2)]
                 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -478,8 +490,8 @@ if(__name__ == '__main__'):
 
                 # Find R and E directly from pressure and flow
                 # and volume in the single compartment model
-                dependent = array([pres])
-                independent = array([flw, vol])
+                dependent = array([pressure[start_insp:end_insp]])
+                independent = array([flow[start_insp:end_insp], volume[start_insp:end_insp]])
                 res = lstsq(independent.T, dependent.T)
 
                 E = res[0][1][0]
@@ -491,8 +503,8 @@ if(__name__ == '__main__'):
                 print('')
 
                 # Remake pressure and flow from parameters
-                remade_pres = [E*vol[i] + R*flw[i] for i in range(len(flw))]
-                remade_flow = [(pres[i] - E*vol[i])/R for i in range(len(flw))]
+                remade_pres = [E*volume[i] + R*flow[i] for i in range(len(flow)/2)]
+                remade_flow = [(pressure[i] - E*volume[i])/R for i in range(len(flow)/2)]
 
                 # Scale the pressure up
                 scaling = E
@@ -500,6 +512,8 @@ if(__name__ == '__main__'):
                                                    for p in pressure_estimation]
                 pressure_estimation_scaled_updated = [p * scaling
                                                       for p in pressure_estimation_updated]
+                P_est_scaled = [p * scaling
+                                for p in P_est]
 
                 ER_actual[breath] = (R/E)
                 ER_simulated[breath] = (R_est/E_est)
@@ -507,32 +521,33 @@ if(__name__ == '__main__'):
                 # plot stuff
                 if(0):
                     f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+                    plot_end = len(flow)/2
 
-                    ax1.plot(pressure[0:end_insp], 'b-', linewidth=3)
-                    ax1.plot(range(start_insp,end_insp), remade_pres, 'c-')
-                    ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_orig, 'r:')
-                    ax1.plot(range(start_insp,end_insp), pressure_estimation_scaled_updated, 'm-')
+                    ax1.plot(pressure[:plot_end], 'b-', linewidth=3)
+                    ax1.plot(range(plot_end), remade_pres, 'k-', linewidth=2)
+                    ax1.plot(range(plot_end), P_est_scaled, 'c-')
+                    ax1.plot(range(start,end), pressure_estimation_scaled_orig, 'r.')
+                    ax1.plot(range(start,end), pressure_estimation_scaled_updated, 'm-', linewidth=3)
+                    ax1.plot(start_insp, pressure[start_insp], 'go')
+                    ax1.plot(end_insp, pressure[end_insp], 'ro')
                     #ax1.plot(range(start_insp,end_insp), P_error_scaled, 'k-')
                     ax1.legend([
                                 'Pressure',
                                 'Forward sim from data',
+                                'Forward sim from estimate (scaled)',
                                 'Original estimate (scaled)',
                                 'Updated estimate (scaled)',
-                                'Estimate after iteration (scaled)'
                                 ], loc=4)
 
-                    ax2.plot(flow[0:end_insp], 'r-', linewidth=3)
-                    ax2.plot(range(start_insp,end_insp), remade_flow, 'b-')
-                    ax2.plot(range(start_insp,end_insp), Q_orig, 'm*-')
-                    #ax2.plot(range(start_insp,end_insp), flow_after_iteration, 'k-', linewidth=2)
-
-                    #ax2.plot(range(start_insp,end_insp), Q_error, 'x-', color='#f07203')
+                    ax2.plot(flow[0:plot_end], 'r-', linewidth=3)
+                    ax2.plot(range(plot_end), remade_flow, 'b-')
+                    ax2.plot(range(start,end), Q_orig, 'm*-')
+                    ax2.plot(start_insp, flow[start_insp], 'go')
+                    ax2.plot(end_insp, flow[end_insp], 'ro')
                     ax2.legend([
                                 'Flow',
                                 'Forward sim from data',
                                 'Forward sim from estimate',
-                                'Forward sim after iteration',
-                                'Error in flow'
                                 ])
 
                     ax3.plot(volume[0:end_insp],'yx-')
