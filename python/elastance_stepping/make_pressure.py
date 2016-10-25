@@ -107,12 +107,7 @@ def peak_points(data, Fs, plot=False):
 ######################
 def model_pressure(start, end, flow, volume, pressure_offset):
 
-    def estimate_pressure(flow, volume, start, end, pressure_offset, factor):
-        # Looking at a small section
-        # Volume is added to offset value so want first
-        # value not equal to zero so the curve is smooth
-        vol_section = [volume[i] - volume[start-1] for i in range(start,end)]
-
+    def estimate_pressure(flow, volume, start, end, pressure_offset):
         # In typical breathing:
         #   - Breathing rate is low
         #   - Maximum flow rate is low
@@ -124,7 +119,11 @@ def model_pressure(start, end, flow, volume, pressure_offset):
         # So input pressure can be estimated as P = EV + P0.
         # Pressure estimation here is P^ = P/E so use
         # P^ = V + P^0 as our pressure estimate.
-        #
+
+        # Volume is added to offset value so want first
+        # value not equal to zero so the curve is smooth
+        vol_section = [volume[i] - volume[start-1] for i in range(start,end)]
+
         # If flow is positive, pressure must be increasing.
         # If flow is negative, pressure must be decreasing.
         # Flow is split into sections between flow zero crossings,
@@ -164,7 +163,6 @@ def model_pressure(start, end, flow, volume, pressure_offset):
                                                  start_point,
                                                  index,
                                                  pressure_offset,
-                                                 factor,
                                                  )
             # Update pressure estimate and pressure offset
             pressure_estimation[start_point-start:index-start] = pressure_section
@@ -179,7 +177,6 @@ def model_pressure(start, end, flow, volume, pressure_offset):
                                              start_point,
                                              end,
                                              pressure_offset,
-                                             factor,
                                              )
         # Update pressure estimate
         pressure_estimation[start_point-start:] = pressure_section
