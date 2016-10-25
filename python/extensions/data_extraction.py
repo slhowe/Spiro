@@ -36,6 +36,24 @@ def ManualDetection_data(mat, breath):
 
     return([pressure, flow])
 
+def dated_data(mat, breath):
+    # Extract pressure and flow data
+    data = mat['BreathData']
+    pressure = data['Pressure'][0][breath]
+    flow = data['Flow'][0][breath]
+
+    # Pressure and flow are in a weird format
+    # of array of lists of single values.
+    # Convert array to list and pull values out
+    # into main list.
+    pressure = pressure.tolist()
+    pressure = [p[0] for p in pressure] # every item is own list
+    flow = flow.tolist()
+    flow = [f[0] for f in flow]
+
+    return([pressure, flow])
+
+
 def PS_vs_NAVA_invasive_data(mat):
     # Extract pressure and flow data
     pressure = mat['press']
