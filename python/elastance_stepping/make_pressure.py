@@ -108,105 +108,81 @@ def peak_points(data, Fs, plot=False):
 def model_pressure(start, end, flow, volume, pressure_offset):
 
     def estimate_pressure(flow, volume, start, end, pressure_offset, factor):
-        # Looking at a small section of flow
-        #flow_section = flow[start:end]
+        # Looking at a small section
+        # Volume is added to offset value so want first
+        # value not equal to zero so the curve is smooth
         vol_section = [volume[i] - volume[start-1] for i in range(start,end)]
 
-        # Gradient of flow in section
-        flow_gradient = (flow[end-1] - flow[start])/((end-start)/50.0)
-        print('flow_gradient: {}'.format(flow_gradient))
-
-       # Want to flip the gradient if flow is negative
-        # This will subtract a slope from the pressure
-        # offset so pressure decreases for negative flow
+        # In typical breathing:
+        #   - Breathing rate is low
+        #   - Maximum flow rate is low
+        # Because of low flow rate, pressure drop due to
+        # airways is low (unless very restricted?).
+        # Because breathing rate is low, lungs have time
+        # to equalise to input pressure. This means the
+        # lung pressure will closely follow input pressure.
+        # So input pressure can be estimated as P = EV + P0.
+        # Pressure estimation here is P^ = P/E so use
+        # P^ = V + P^0 as our pressure estimate.
+        #
+        # If flow is positive, pressure must be increasing.
+        # If flow is negative, pressure must be decreasing.
+        # Flow is split into sections between flow zero crossings,
+        # minima and maxima
         if(flow[start] < 0):
-            flow_gradient = -flow_gradient
-
-        # Flow increasing
-        # Models large jump at start of insp/exp
-        # Jump size is very dependent on the rate of change of flow
-        # Quicker rise time gives larger pressure jump
-        if(flow_gradient > 0):
-            #pressure_section = integral(flow_section, 50)
-            pressure_section = vol_section
-            pressure_section = [pressure_offset + p#*flow_gradient
-                                for p in pressure_section]
-
-        # Flow decreasing
-        # Modelled as a constant pressure with a slight ramp
-        # Slope of ramp depends on overall trend of breath
-        # Trend found from (max flow/max volume) factor
-        # If factor is large, pressure is quite flat
-        # If factor is small, pressure has slope
-        # Lower factor gives a steeper slope
+            pressure_section = [pressure_offset - p
+                                for p in vol_section]
         else:
-            # Define factor used to control slope
-            # of pressure when flow decreasing
-            #new_factor = (1 - (factor - 1)/2)
-            #if(new_factor < 0):
-                #new_factor = 0
-            #print('new_factor: {}'.format(new_factor))
-
-            #pressure_section = integral(flow_section, 50)
-            pressure_section = vol_section
-            print(vol_section)
-            pressure_section = [pressure_offset + p#*factor
-                                for p in pressure_section]
+            pressure_section = [pressure_offset + p
+                                for p in vol_section]
 
         return pressure_section
 
     # Setup
     pressure_estimation = [nan]*(end-start)
 
-    Q_max = max(flow)
-    V_max = max(volume)
+    # Find points
+    # Pressure is estimated in small sections
+    # between these points. Points are at minima,
+    # maxima, and zero crossings in flow
+    points = peak_points(flow, Fs=50, plot=False)
 
-    if(V_max != 0):
-        factor = (Q_max)/(V_max)
-        print('\nfactor: {}\n'.format(factor))
+    # Get index of the last point
+    last_point = 0
+    for point in points:
+        if(point < end):
+            last_point += 1
 
-        # Find points
-        # Pressure is estimated in small sections
-        # between these points. Points are at minima,
-        # maxima, and zero crossings in flow
-        points = peak_points(flow, Fs=50, plot=False)
+    # Set starting points
+    start_point = start
 
-        # Get index of the last point
-        last_point = 0
-        for point in points:
-            if(point < end):
-                last_point += 1
-
-        # Set starting points
-        start_point = start
-
-        # Looking at data in between points
-        for index in points[:last_point]:
-            if(index > start):
-                pressure_section = estimate_pressure(flow,
-                                                     volume,
-                                                     start_point,
-                                                     index,
-                                                     pressure_offset,
-                                                     factor,
-                                                     )
-                # Update pressure estimate and pressure offset
-                pressure_estimation[start_point-start:index-start] = pressure_section
-                pressure_offset = pressure_section[-1]
-                start_point = index
-
-        # Include any data after final point
-        start_point = points[last_point - 1]
-        if(start_point < end):
+    # Looking at data in between points
+    for index in points[:last_point]:
+        if(index > start):
             pressure_section = estimate_pressure(flow,
                                                  volume,
                                                  start_point,
-                                                 end,
+                                                 index,
                                                  pressure_offset,
                                                  factor,
                                                  )
-            # Update pressure estimate
-            pressure_estimation[start_point-start:] = pressure_section
+            # Update pressure estimate and pressure offset
+            pressure_estimation[start_point-start:index-start] = pressure_section
+            pressure_offset = pressure_section[-1]
+            start_point = index
+
+    # Include any data after final point
+    start_point = points[last_point - 1]
+    if(start_point < end):
+        pressure_section = estimate_pressure(flow,
+                                             volume,
+                                             start_point,
+                                             end,
+                                             pressure_offset,
+                                             factor,
+                                             )
+        # Update pressure estimate
+        pressure_estimation[start_point-start:] = pressure_section
 
     return pressure_estimation
 
