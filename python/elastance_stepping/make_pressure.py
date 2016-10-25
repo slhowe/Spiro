@@ -144,6 +144,7 @@ def model_pressure(start, end, flow, volume, pressure_offset):
             #print('new_factor: {}'.format(new_factor))
 
             pressure_section = integral(flow_section, 50)
+            factor = 1
             pressure_section = [pressure_offset + p*factor
                                 for p in pressure_section]
 
@@ -226,9 +227,9 @@ if(__name__ == '__main__'):
     # There are different data files with different
     # data structures. This section extracts data
     # from different file types.
-    using_ManualDetection_files = 1
-    using_dated_files = 0
-    using_PS_vs_NAVA_invasive_files = 1
+    using_ManualDetection_files = 0
+    using_dated_files = 1
+    using_PS_vs_NAVA_invasive_files = 0
     using_PS_vs_NAVA_non_invasive_files = 0
 
     files = []
@@ -238,8 +239,8 @@ if(__name__ == '__main__'):
     if(using_ManualDetection_files):
         path = '/home/sarah/Documents/Spirometry/data/ventilation/ManualDetection/'
         MD_filenames = [
-                        #'ManualDetection_Patient4_PM.mat',
-                        #'ManualDetection_Patient14_FM.mat',
+                        'ManualDetection_Patient4_PM.mat',
+                        'ManualDetection_Patient14_FM.mat',
                         'ManualDetection_Patient17_FM.mat',
                        ]
         # Make full path names
@@ -269,13 +270,13 @@ if(__name__ == '__main__'):
         path = '/home/sarah/Documents/Spirometry/data/ventilation/PS_vs_NAVA_invasive/'
         PNI_filenames = [
                          'BRU1-PS.mat',
-                         'BRU2-PS.mat', # Need to move further forward
+                         'BRU2-PS.mat',
                          'BRU4-PS.mat',
-                         'BRU6-PS.mat', # Need to move further forward
+                         'BRU6-PS.mat',
                          'BRU14-PS.mat',
-                         'GE04-PS.mat', # Need to move further forward
+                         'GE04-PS.mat',
                          'GE05-PS.mat',
-                         'GE11-PS.mat', # Need to move further forward
+                         'GE11-PS.mat',
                          'GE21-PS.mat',
                         ]
         # Make full path names
@@ -297,13 +298,16 @@ if(__name__ == '__main__'):
                         'NIV_BRU07.mat',
                         'NIV_BRU08.mat',
                         'NIV_BRU09.mat',
-                        'NIV_BRU010.mat',
+                        'NIV_BRU10.mat',
+                        'NIV_LIE01.mat',
+                        'NIV_LIE02.mat',
+                        'NIV_LIE03.mat',
                        ]
         # Make full path names
         # Add names to list of all data
         # Add data type to data type list
         files += [path + name for name in PNN_filenames]
-        file_types += ['PNI' for name in PNN_filenames]
+        file_types += ['PNN' for name in PNN_filenames]
 
 
     # Go through every file declared
@@ -319,12 +323,21 @@ if(__name__ == '__main__'):
         # Data extraction for ManualDetection type data,
         if(file_type == 'MD'):
             last_breath = 480
+        # Data extraction for dated ventilation data,
+        elif(file_type == 'DF'):
+            last_breath = 480
         # Data extraction for PS/NAVA invasive ventilation data,
         elif(file_type == 'PNI'):
             full_data = extr.PS_vs_NAVA_invasive_data(mat_data)
-            PNI_pressure = full_data[0]
-            PNI_flow = full_data[1]
-            last_breath = len(PNI_flow)
+            full_pressure = full_data[0]
+            full_flow = full_data[1]
+            last_breath = len(full_flow)
+        # Data extraction for PS/NAVA non-invasive ventilation data,
+        elif(file_type == 'PNN'):
+            full_data = extr.PS_vs_NAVA_noninvasive_data(mat_data)
+            full_pressure = full_data[0]
+            full_flow = full_data[1]
+            last_breath = len(full_flow)
 
         # Specify breaths to iterate through
         first_breath = 0
@@ -343,9 +356,16 @@ if(__name__ == '__main__'):
                 breath_data = extr.ManualDetection_data(mat_data, breath)
                 pressure = breath_data[0]
                 flow = breath_data[1]
+            elif(file_type == 'DF'):
+                breath_data = extr.dated_data(mat_data, breath)
+                pressure = breath_data[0]
+                flow = breath_data[1]
             elif(file_type == 'PNI'):
-                pressure = PNI_pressure[breath]
-                flow = PNI_flow[breath]
+                pressure = full_pressure[breath]
+                flow = full_flow[breath]
+            elif(file_type == 'PNN'):
+                pressure = full_pressure[breath]
+                flow = full_flow[breath]
 
         #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -551,13 +571,8 @@ if(__name__ == '__main__'):
                                 ])
 
                     ax3.plot(volume[0:end_insp],'yx-')
-                    ax3.plot([p/E for p in pressure[:end_insp]])
-
-                    ax3.plot([(pressure[i]/E)/volume[i] for i in range(len(pres))])
                     ax3.legend([
                                 'Volume',
-                                'P/E',
-                                'P/E/V = scaling',
                                 ])
 
                     ax1.grid()
