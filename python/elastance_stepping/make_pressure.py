@@ -206,10 +206,10 @@ if(__name__ == '__main__'):
     # There are different data files with different
     # data structures. This section extracts data
     # from different file types.
-    using_ManualDetection_files = 0
+    using_ManualDetection_files = 1
     using_dated_files = 1
-    using_PS_vs_NAVA_invasive_files = 0
-    using_PS_vs_NAVA_non_invasive_files = 0
+    using_PS_vs_NAVA_invasive_files = 1
+    using_PS_vs_NAVA_non_invasive_files = 1
 
     files = []
     file_types = []
@@ -320,7 +320,7 @@ if(__name__ == '__main__'):
 
         # Specify breaths to iterate through
         first_breath = 0
-        #last_breath = 80
+        last_breath = 3
 
         # Make space to save results
         ER_actual = [nan]*last_breath
@@ -346,11 +346,12 @@ if(__name__ == '__main__'):
                 pressure = full_pressure[breath]
                 flow = full_flow[breath]
 
-        #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # filter data
             flow = hamming(flow, 20, sampling_frequency, 10)
             flow = real(flow).tolist()
+            pressure = hamming(pressure, 20, sampling_frequency, 10)
+            pressure = real(pressure).tolist()
 
             # Get the volume
             volume = integral(flow, sampling_frequency)
@@ -375,21 +376,20 @@ if(__name__ == '__main__'):
             #peep_data = pressure[-len(pressure)/3:]
             #peep = sum(peep_data)/len(peep_data)
             #peep -= 0.1
-            peep = pressure[start_insp]
-            print('peep: {}'.format(peep))
+            peep_real = pressure[start_insp]
+            print('peep real: {}'.format(peep_real))
+            pressure_real = [p-peep_real for p in pressure]
 
             # End of inspiration:
-            # This is at the point where flow goes negative
-            # followed by a large drop in pressure
-            # If that's not a thing, take the last index
-            end_insp = len(flow) - 1
-            i = start_insp
-            while i < (len(flow)-15):
-                # Find negative flow for end of insp
-                if(flow[i] < 0 and (pressure[i+15] < peep+4)):
+            # Working backwards, find the last
+            # point of positive flow in the data
+            end_insp = len(flow)
+            i = len(flow)*3/4
+            while i > 0:
+                if(flow[i] < 0 and flow[i-1] > 0):
                     end_insp = i - 1
-                    i = len(flow)
-                i += 1
+                    i = 0
+                i -= 1
 
            # Find first flow shoulder
             shoulder = Q_max
@@ -418,11 +418,14 @@ if(__name__ == '__main__'):
             # Offset of estimated pressure will be 0
             pressure = [p - peep for p in pressure]
 
+            #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
             # Check there are more than the minimum data points
             # needed for least squares in inspiration and range
             # for estimating data
             if(end_insp - start_insp <= 3
-            or end - start <= 3):
+            or end - start <= 3
+            or isnan(flow[0])):
                 print('Bad data, ignoring')
 
             else:
@@ -448,118 +451,241 @@ if(__name__ == '__main__'):
                                                          #volume[:end_insp],
                                                          #pressure_offset)
 
-                if(not isnan(pressure_estimation[0])):
-                    # Get parameters from estimated pressure
-                    dependent = array([pressure_estimation])
-                    independent = array([flw, vol])
-                    res = lstsq(independent.T, dependent.T)
-                    E_est = res[0][1][0]
-                    R_est = res[0][0][0]
+                # Get parameters from estimated pressure
+                # E_est should = 1
+                # R_est should = R/E
+                dependent = array([pressure_estimation])
+                independent = array([flw, vol])
+                res = lstsq(independent.T, dependent.T)
+                E_est = res[0][1][0]
+                R_est = res[0][0][0]
 
-                    print('E_est: {}'.format(E_est))
-                    print('R_est: {}'.format(R_est))
-                    print('R_est/E_est: {}'.format(R_est/E_est))
-                    print('')
+                print('E_est: {}'.format(E_est))
+                print('R_est: {}'.format(R_est))
+                print('R_est/E_est: {}'.format(R_est/E_est))
+                print('')
 
-                    # Using the estimated pressure, E should = 1.
-                    # If not, there was an error in the magnitude of estimate.
-                    # Divide pressure estimate by E_est to correct for error.
-                    # This totally assumes the shape is correct
-                    pressure_estimation_updated = [p/E_est for p in pressure_estimation]
+                # Using the estimated pressure, E should = 1.
+                # If not, there was an error in the magnitude of estimate.
+                # Divide estimates by E_est to correct for error.
+                pressure_estimation_updated = [p/E_est for p in pressure_estimation]
+                R_est /= E_est
+                E_est /= E_est
 
-                    # Update changes to parameters
-                    R_est /= E_est
-                    E_est /= E_est
+                # Forward simulate flow from pressure estimate and parameters
+                Q_orig = [(pressure_estimation_updated[i] - E_est*vol[i])/R_est
+                         for i in range(len(vol))]
+                P_est = [volume[i]*E_est + flow[i]*R_est
+                        for i in range(len(flow)/2)]
 
-                    print('E_updated: {}'.format(E_est))
-                    print('R_updated: {}'.format(R_est))
-                    print('R_updated/E_updated: {}'.format(R_est/E_est))
-                    print('')
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                # Now have an estimate for shape of pressure input over top
+                # of inspiration curve. Don't have offset.
+                # Assuming flat point in pressure at the end of inspiration
+                # (goes from increasing/flat to decreasing at this point)
+                # can take derivative to remove offset, with known value of
+                # zero at the end.
 
-                    # Forward simulate flow from pressure estimate and parameters
-                    Q_orig = [(pressure_estimation_updated[i] - E_est*vol[i])/R_est
-                             for i in range(len(vol))]
-                    P_est = [volume[i]*E_est + flow[i]*R_est
-                            for i in range(len(flow)/2)]
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    ### THIS SECTION USES PRESSURE DATA ###
+                # Remake full pressure estimation of inspiration
+                der_end = end - (end-start)/2
+                der_offset = 3
 
-                    # Find R and E directly from pressure and flow
-                    # and volume in the single compartment model
-                    dependent = array([pressure[start_insp:end_insp]])
-                    independent = array([flow[start_insp:end_insp], volume[start_insp:end_insp]])
-                    res = lstsq(independent.T, dependent.T)
+                pressure_estimation_top = [E_est*volume[i] + R_est*flow[i]
+                                         for i in range(start, end_insp + der_offset)]
 
-                    E = res[0][1][0]
-                    R = res[0][0][0]
+                # Take the derivative
+                pressure_estimation_der = derivative(pressure_estimation_top, 50)
 
-                    print('E: {}'.format(E))
-                    print('R: {}'.format(R))
-                    print('R/E actual: {}'.format(R/E))
-                    print('')
+                drop = 0#min(pressure_estimation_der)
 
-                    # Remake pressure and flow from parameters
-                    remade_pres = [E*volume[i] + R*flow[i] for i in range(len(flow)/2)]
-                    remade_flow = [(pressure[i] - E*volume[i])/R for i in range(len(flow)/2)]
+                # Drop derivative so end at zero
+                pressure_estimation_der = [d - drop
+                            for d in pressure_estimation_der[:end-start-1]]
 
-                    # Scale the pressure up
-                    scaling = 1/E
-                    pressure_scaled = [p * scaling
-                                       for p in pressure]
-                    pressure_fwd_sim_scaled = [p * scaling
-                                               for p in remade_pres]
-                    P_est_scaled = [p * scaling
-                                    for p in P_est]
+                # Find params and correct for error in V
+                vol_der = (flow[start + 1:der_end])
+                flow_der = derivative(flow[start:der_end], 50)
+                dependent = array([pressure_estimation_der[:der_end - start - 1]])
+                independent = array([flow_der, vol_der])
+                res = lstsq(independent.T, dependent.T)
+                E_est = res[0][1][0]
+                R_est = res[0][0][0]
 
-                    ER_actual[breath] = (R/E)
-                    ER_simulated[breath] = (R_est/E_est)
+                pressure_estimation_der = [p/E_est for p in pressure_estimation_der]
+                R_est /= E_est
+                E_est = 1
 
-                    # plot stuff
-                    if(0):
-                        f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
-                        plot_end = len(flow)/2
+                # Get parameters from estimated pressure
+                dependent = array([pressure_estimation_der[:der_end - start - 1]])
+                independent = array([flow_der, vol_der])
+                res = lstsq(independent.T, dependent.T)
+                E_est = res[0][1][0]
+                R_est = res[0][0][0]
 
-                        ax1.plot(pressure_scaled[0:plot_end], 'b-', linewidth=3)
-                        ax1.plot(range(plot_end), pressure_fwd_sim_scaled, 'k-', linewidth=2)
-                        ax1.plot(range(plot_end), P_est, 'c-')
-                        ax1.plot(range(start,end), pressure_estimation, 'r.')
-                        ax1.plot(range(start,end), pressure_estimation_updated, 'm-', linewidth=3)
-                        ax1.plot(start_insp, pressure_scaled[start_insp], 'go')
-                        ax1.plot(end_insp, pressure_scaled[end_insp], 'ro')
-                        #ax1.plot(range(start_insp,end_insp), P_error_scaled, 'k-')
-                        ax1.legend([
-                                    'Pressure (scaled to P/E)',
-                                    'Forward sim from data (scaled to P/E)',
-                                    'Forward sim from estimate',
-                                    'Original estimate',
-                                    'Updated estimate',
-                                    ], loc=4)
+                print('E_est from estimated derivative: {}'.format(E_est))
+                print('R_est from estimated derivative: {}'.format(R_est))
+                print('R_est/E_est from estimated derivative: {}'.format(R_est/E_est))
+                print('')
 
-                        ax2.plot(flow[0:plot_end], 'r-', linewidth=3)
-                        ax2.plot(range(plot_end), remade_flow, 'b-')
-                        ax2.plot(range(start,end), Q_orig, 'm*-')
-                        ax2.plot(start_insp, flow[start_insp], 'go')
-                        ax2.plot(end_insp, flow[end_insp], 'ro')
-                        ax2.legend([
-                                    'Flow',
-                                    'Forward sim from data',
-                                    'Forward sim from estimate',
-                                    ])
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                ### THIS SECTION USES PRESSURE DATA ###
 
-                        ax3.plot(volume[0:end_insp],'yx-')
-                        ax3.legend([
-                                    'Volume',
-                                    ])
+                # Params from real pressure
+                dependent = array([pressure_real[start_insp:end_insp]])
+                independent = array([flow[start_insp:end_insp], volume[start_insp:end_insp]])
+                res = lstsq(independent.T, dependent.T)
+                Ea = res[0][1][0]
+                Ra = res[0][0][0]
 
-                        ax1.grid()
-                        ax2.grid()
-                        ax3.grid()
-                        plt.show()
+                print('E from actual pressure: {}'.format(Ea))
+                print('R from actual pressure: {}'.format(Ra))
+                print('R/E from actual pressure: {}'.format(Ra/Ea))
+                print('')
 
-                        V_max = max(volume)
-                        factor = (Q_max)/(V_max)
+                # From dropped pressure
+                dependent = array([pressure[start_insp:end_insp]])
+                independent = array([flow[start_insp:end_insp], volume[start_insp:end_insp]])
+                res = lstsq(independent.T, dependent.T)
+
+                Edrop = res[0][1][0]
+                Rdrop = res[0][0][0]
+
+                print('E from dropped pressure: {}'.format(Edrop))
+                print('R from dropped pressure: {}'.format(Rdrop))
+                print('R/E from dropped pressure: {}'.format(Rdrop/Edrop))
+                print('')
+
+                # Remake pressure and flow from parameters
+                remade_pres = [Edrop*volume[i] + Rdrop*flow[i] for i in range(len(flow)/2)]
+                remade_flow = [(pressure[i] - Edrop*volume[i])/Rdrop for i in range(len(flow)/2)]
+
+                # Scale the pressure up
+                scaling = 1/Edrop
+                pressure_real_scaled = [p * scaling
+                                   for p in pressure_real]
+                pressure_scaled = [p * scaling
+                                   for p in pressure]
+                pressure_fwd_sim_scaled = [p * scaling
+                                           for p in remade_pres]
+                P_est_scaled = [p * scaling
+                                for p in P_est]
+
+                # Params from real scaled pressure derivative
+                dependent = array([derivative(pressure_real_scaled[start:der_end], 50)])
+                independent = array([flow_der, vol_der])
+                res = lstsq(independent.T, dependent.T)
+
+                Erd = res[0][1][0]
+                Rrd = res[0][0][0]
+
+                print('E from scaled pressure derivative: {}'.format(Erd))
+                print('R from scaled pressure derivative: {}'.format(Rrd))
+                print('R/E from scaled pressure derivative: {}'.format(Rrd/Erd))
+                print('')
+
+                # remake derivatives
+                remade_est_der = [vol_der[i] + 0.35*flow_der[i]
+                              for i in range(len(flow_der))]
+                remade_der = [vol_der[i] + Rrd/Erd*flow_der[i]
+                              for i in range(len(flow_der))]
+
+                # Remake P/E
+                remade_pres_act= [volume[i] + Rrd/Erd*flow[i]
+                                      for i in range(start, end)]
+                remade_pres_der= [volume[i] + R_est/E_est*flow[i]
+                                      for i in range(start, end)]
+
+                ER_actual[breath] = (Rdrop/Edrop)
+                ER_simulated[breath] = (R_est/E_est)
+
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+                if(1):
+                    f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+                    plot_end = len(flow)/2
+
+                    ax1.plot(range(start + 1,end), derivative(pressure_real_scaled[start:end], 50), 'b-', linewidth=3)
+                    ax1.plot(range(start + 1,start+len(P_est[start:end])), derivative(P_est[start:end], 50), 'gs-', linewidth=3)
+                    ax1.plot(range(start + 1,der_end), pressure_estimation_der[:der_end-start-1], 'cd-', linewidth=3)
+                    ax1.plot(range(start + 1,der_end), remade_der, 'r-', linewidth=3)
+                    ax1.plot(range(start + 1,der_end), remade_est_der, 'k*-', linewidth=3)
+                    ax1.legend([
+                                'Derivative pressure',
+                                'Derivative pressure fwd sim',
+                                'Derivative pressure estimate',
+                                'Derivative from real R/E',
+                                'Derivative from estimate R/E',
+                                ], loc=4)
+
+                    ax2.plot(range(start + 1,der_end), flow_der, 'ks-', linewidth=1)
+                    ax2.legend([
+                                'Derivative flow',
+                                ])
+
+                    ax3.plot(range(start + 1,der_end), vol_der, 'ys-', linewidth=3)
+                    ax3.legend([
+                                'Derivative Volume',
+                                ])
+
+                    ax1.grid()
+                    ax2.grid()
+                    ax3.grid()
+                    plt.show()
+
+
+                plt.plot([p/Ea for p in pressure_real[0:start]])
+                plt.plot([(flow[i])*Ra/Ea*1.0 for i in range(start)])
+                plt.show()
+
+                # plot stuff
+                if(1):
+                    f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+                    plot_end = len(flow)/2
+
+
+                    ax1.plot(pressure_scaled[0:plot_end], 'b-', linewidth=3)
+                    ax1.plot(range(plot_end), pressure_fwd_sim_scaled, 'k-', linewidth=2)
+                    ax1.plot(range(plot_end), P_est, 'c-')
+                    ax1.plot(range(start,end), pressure_estimation, 'r.')
+                    ax1.plot(range(start,end), pressure_estimation_updated, 'm-', linewidth=3)
+                    ax1.plot(range(start,end), remade_pres_act, 'r*', linewidth=3)
+                    ax1.plot(range(start,end), remade_pres_der, 'm.', linewidth=3)
+                    ax1.plot(start_insp, pressure_scaled[start_insp], 'go')
+                    ax1.plot(end_insp, pressure_scaled[end_insp], 'ro')
+                    ax1.legend([
+                                'Pressure (scaled to P/E)',
+                                'Forward sim from data (scaled to P/E)',
+                                'Forward sim from estimate',
+                                'Original estimate',
+                                'Updated estimate',
+                                'Forward sim from actual der',
+                                'Forward sim from estimate der',
+                                ], loc=4)
+
+                    ax2.plot(flow[0:plot_end], 'r-', linewidth=3)
+                    ax2.plot(range(plot_end), remade_flow, 'b-')
+                    ax2.plot(range(start,end), Q_orig, 'm*-')
+                    ax2.plot(start_insp, flow[start_insp], 'go')
+                    ax2.plot(end_insp, flow[end_insp], 'ro')
+                    ax2.legend([
+                                'Flow',
+                                'Forward sim from data',
+                                'Forward sim from estimate',
+                                ])
+
+                    ax3.plot(volume[0:end_insp],'yx-')
+                    ax3.legend([
+                                'Volume',
+                                ])
+
+                    ax1.grid()
+                    ax2.grid()
+                    ax3.grid()
+                    plt.show()
 
         if(1):
             f, (ax3) = plt.subplots(1, sharex=True)
