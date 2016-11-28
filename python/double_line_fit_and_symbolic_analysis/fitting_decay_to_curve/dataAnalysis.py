@@ -114,43 +114,12 @@ for dataset in pe.Data:
             print('exponential fit lines never intersect')
 
 
-        #~~~~~~~ remake the input pressure ~~~~~~
-        flw = dataset.flow[curve_start:curve_end]
-        vol = integral(flw, 125)
-        vol = [vol[-1]-v for v in vol]
-
-        p_out = dataset.pressure[curve_start:curve_end]
-        p_edit = [0]*len(p_out)
-
-        # make array of tau
-        for i in range(len(p_out)):
-            if(i < dataset.crossing):
-                p_edit[i] = -p_out[i] * dataset.decay[test][0][0]
-            else:
-                p_edit[i] = -p_out[i] * dataset.decay[test][1][0]
-
-        p_in = integral(p_edit, 125)
-        p_in_sqr = [p_in[-1] for i in p_in]
-
-        dependent = array([p_in_sqr])
-        independent = array([vol, flw])
-        res = lstsq(independent.T, dependent.T)
-
-        print("Lst resid: {}".format(res[1]))
-        Em = res[0][0][0]
-        Rm = res[0][1][0]
-        print('E: {}'.format(Em))
-        print('R: {}'.format(Rm))
-        print('E/R: {}'.format(Em/Rm))
-        line = [Em*vol[i] + Rm*flw[i] for i in range(len(flw))]
-
-
         #~~~~~~ plot example ~~~~~~
         plotting = True
         if(plotting):
             times = [x/Fs for x in range(0,(curve_end - curve_start))]
 
-            f, (ax1, ax2) = plt.subplots(2, sharex=True)
+            f, (ax1) = plt.subplots(1, sharex=True)
 
             decay_info = 'Decay Rates\nHigh: {0:.2f}'.format(dataset.decay[test][0][0]) + ' \nLow: {0:.2f}'.format(dataset.decay[test][1][0])
             if dataset.finding_flow:
@@ -168,13 +137,6 @@ for dataset in pe.Data:
             ax1.legend(['Measured Data','Exponential fit (High)','Exponential fit (Low)'])
             ax1.set_xlabel('Time (s)')
             ax1.grid(True)
-
-            ax2.plot(times, p_in_sqr, 'r')
-            ax2.plot(times, p_out, 'b')
-            ax2.plot(times, line, 'm')
-            ax2.plot(times, p_in, 'y')
-            ax2.legend(['Input pressure', 'Output pressure', 'Modelled input'])
-            ax2.grid()
 
             saving = False
             if saving:

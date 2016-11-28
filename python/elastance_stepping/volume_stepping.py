@@ -162,31 +162,9 @@ def model_pressure(start, end, flow, volume, pressure_offset, points):
                                                  pressure_offset,
                                                  )
             # Update pressure estimate and pressure offset
-
-#            dependent = np.array([pressure_section])
-#            independent = np.array([flow[start_point:index], volume[start_point:index]])
-#            #print(dependent.shape)
-#            #print(independent.shape)
-#            #print(start)
-#            #print(index)
-#            res = lstsq(independent.T, dependent.T)
-#            E_est = res[0][1][0]
-#            R_est = res[0][0][0]
-#
-#            # Using the estimated pressure, E should = 1.
-#            # If not, there was an error in the magnitude of estimate.
-#            # Divide estimates by E_est to correct for error.
-#            pressure_section= [p - pressure_offset for p in pressure_section]
-#            pressure_section_updated = [p/E_est for p in pressure_section]
-#            R_est /= E_est
-#            E_est /= E_est
-#            pressure_section = [p + pressure_offset for p in pressure_section]
-#            pressure_section_updated = [p + pressure_offset for p in pressure_section_updated]
-
             pressure_estimation[start_point-start:index-start] = pressure_section
             pressure_offset = pressure_section[-1]
             start_point = index
-
 
     # Include any data after final point
     start_point = points[last_point - 1]
@@ -224,9 +202,9 @@ if(__name__ == '__main__'):
     # data structures. This section extracts data
     # from different file types.
     using_ManualDetection_files = 1
-    using_dated_files = 1
-    using_PS_vs_NAVA_invasive_files = 1
-    using_PS_vs_NAVA_non_invasive_files = 1
+    using_dated_files = 0
+    using_PS_vs_NAVA_invasive_files = 0
+    using_PS_vs_NAVA_non_invasive_files = 0
 
     files = []
     file_types = []
@@ -319,29 +297,29 @@ if(__name__ == '__main__'):
         # Data extraction for ManualDetection type data,
         if(file_type == 'MD'):
             last_breath = 480
-            sampling_frequency = 50
+            sampling_frequency = 50.0
         # Data extraction for dated ventilation data,
         elif(file_type == 'DF'):
             last_breath = 480
-            sampling_frequency = 50
+            sampling_frequency = 50.0
         # Data extraction for PS/NAVA invasive ventilation data,
         elif(file_type == 'PNI'):
             full_data = extr.PS_vs_NAVA_invasive_data(mat_data)
             full_pressure = full_data[0]
             full_flow = full_data[1]
             last_breath = len(full_flow)
-            sampling_frequency = 100
+            sampling_frequency = 100.0
         # Data extraction for PS/NAVA non-invasive ventilation data,
         elif(file_type == 'PNN'):
             full_data = extr.PS_vs_NAVA_noninvasive_data(mat_data)
             full_pressure = full_data[0]
             full_flow = full_data[1]
             last_breath = len(full_flow)
-            sampling_frequency = 100
+            sampling_frequency = 100.0
 
         # Specify breaths to iterate through
         first_breath = 0
-        #last_breath = 30
+        last_breath = 3
 
         # Make space to save results
         ER_actual = []
@@ -369,10 +347,10 @@ if(__name__ == '__main__'):
 
             #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # filter data
-            flow = hamming(flow, 20, sampling_frequency, 10)
-            flow = np.real(flow).tolist()
-            pressure = hamming(pressure, 20, sampling_frequency, 10)
-            pressure = np.real(pressure).tolist()
+            #flow = hamming(flow, 30, sampling_frequency, 10)
+            #flow = np.real(flow).tolist()
+            #pressure = hamming(pressure, 20, sampling_frequency, 10)
+            #pressure = np.real(pressure).tolist()
 
             # Get the volume
             volume = integral(flow, sampling_frequency)
@@ -390,7 +368,7 @@ if(__name__ == '__main__'):
             i = Q_max_index
             while(i > 0):
                 if(flow[i] >= 0 and flow[i-1] < 0):
-                    act_start_insp = i
+                    act_start_insp = i + 1
                     i = 0
                 i -= 1
 
@@ -444,196 +422,256 @@ if(__name__ == '__main__'):
             if(end_insp - start_insp <= 3
             or end - start <= 3
             or np.isnan(flow[0])
-            or flow[0] > 0.05):
+            ):
                 print('Bad data, ignoring')
 
             else:
-                # Crop data to insp range
-                flw = flow[start:end]
-                pres = pressure[start:end]
-                vol = volume[start:end]
-                pressure_offset = 5
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                ### THIS SECTION USES PRESSURE DATA ###
 
-                # Find points
-                # Pressure is estimated in small sections
-                # between these points. Points are at minima,
-                # maxima, and zero crossings in flow
-                breath_segment_points = peak_points(flow[:end], Fs=sampling_frequency, plot=False)
+                # Params from real pressure
+                dependent = np.array([pressure[start_insp:end_insp]])
+                independent = np.array([flow[start_insp:end_insp], volume[start_insp:end_insp]])
+                res = lstsq(independent.T, dependent.T)
+                Ea = res[0][1][0]
+                Ra = res[0][0][0]
 
+                print('E from actual pressure: {}'.format(Ea))
+                print('R from actual pressure: {}'.format(Ra))
+                print('R/E from actual pressure: {}'.format(Ra/Ea))
+                print('')
 
-                iterating = True
-                max_iterations = 8
-                iteration = 0
-                while(iterating):
-                    # Estimate the driving pressure
-                    # Guessing P = E * integral(Q) {approx}
-                    pressure_estimation = model_pressure(start,
-                                                         end,
-                                                         flow[:end],
-                                                         volume[:end],
-                                                         pressure_offset,
-                                                         breath_segment_points
-                                                         )
+                # Remake pressure and flow from parameters
+                remade_pres = [Ea*volume[i] + Ra*flow[i] for i in range(len(flow)/2)]
+                remade_flow = [(pressure[i] - Ea*volume[i])/Ra for i in range(len(flow)/2)]
 
-                    dependent = np.array([pressure_estimation])
-                    independent = np.array([flw, vol])
-                    res = lstsq(independent.T, dependent.T)
-                    E_est = res[0][1][0]
-                    R_est = res[0][0][0]
+                # Scale the pressure
+                scalinga = 1/Ea#max(pressure)
+                pressure_scaled = [p * scalinga
+                                   for p in pressure]
+                pressure_fwd_sim_scaled = [p * scalinga
+                                           for p in remade_pres]
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-                    print('E_est: {}'.format(E_est))
-                    print('R_est: {}'.format(R_est))
-                    print('R_est/E_est: {}'.format(R_est/E_est))
-                    print('shittiness: {}'.format(res[1][0]))
-                    print('')
+                # This bit finds tau from pressure and flow data
+                tau = Ra/Ea
+                print('Tau: {}'.format(tau))
+                V_max = max(volume)
+                Q_max = max(flow)
+                V_max_index = volume.index(V_max) - 3
+                Q_max_index = flow.index(Q_max)
+                V_est = [V_max*(1 - exp(-(i/sampling_frequency)/tau))
+                        for i in range(V_max_index - act_start_insp)]
+                Q_est = [Q_max*exp(-(i/sampling_frequency)/tau)
+                        for i in range(end_insp - Q_max_index)]
 
-                    # Using the estimated pressure, E should = 1.
-                    # If not, there was an error in the magnitude of estimate.
-                    # Divide estimates by E_est to correct for error.
-                    pressure_estimation = [p-pressure_offset for p in pressure_estimation]
-                    pressure_estimation_updated = [p/E_est for p in pressure_estimation]
-                    R_est /= E_est
-                    E_est /= E_est
-                    pressure_estimation = [p+pressure_offset for p in pressure_estimation]
-                    pressure_estimation_updated = [p+pressure_offset for p in pressure_estimation_updated]
+                ln_flow = [0]*(V_max_index - act_start_insp)
+                for i in range(V_max_index - act_start_insp):
+                    if(flow[i + act_start_insp] > 0):
+                        ln_flow[i] = [log(flow[i + act_start_insp])]
+                    else:
+                        ln_flow[i] = [log(1e-3)]
 
-                    if(res[1][0] < 1e-4):
-                        iterating = False
-                    elif(iteration > max_iterations):
-                        iterating = False
+                # This bit guesses at dynamic tau
+                #plt.plot(flow[:end_insp])
+                #plt.plot([tau]*end_insp)
+                time_varying_tau = [nan]*end_insp
+                for i in range(end_insp):
+                    if(volume[i] != 0):
+                        if(flow[i] != 0):
+                            time_varying_tau[i] = volume[i]/flow[i]
+                    else:
+                        time_varying_tau[0] = 1e-3
 
-                    # Guess at the jump
-                    jump = [abs(R_est/E_est)*flow[i] + volume[i] for i in range(start)]
-                    pressure_offset = jump[-1]
+                #plt.plot(time_varying_tau)
+                #plt.plot([np.mean(time_varying_tau)]*end_insp, ':')
+                #plt.legend(['flow',
+                 #           'tau',
+                 #           'sec = 50',
+                 #           'mn = 50',
+                 #           ])
+                #plt.show()
 
-                    iteration += 1
+                # This bit guesses at tau from slope
+                Q_max = max(flow[:end_insp])
+                Q_max_index = flow.index(Q_max)
+                t = 3/sampling_frequency
+                tau_slp = -t/(log(flow[Q_max_index + 3]/flow[Q_max_index]))
+                print(Q_max_index)
+                print(tau_slp)
 
-                    # Forward simulate flow from pressure estimate and parameters
-                    Q_orig = [(pressure_estimation_updated[i] - E_est*vol[i])/R_est
-                            for i in range(len(vol))]
-                    P_est = [volume[i]*E_est + flow[i]*R_est
-                            for i in range(len(flow)/2)]
-                    end_vol = [volume[i] for i in range(end, end_insp)]
+                # This bit does line stepping
+                # sum of impulses signal thingy
+                def fit_tau_to_flow(flow, end, tau_array, jump, altering_value):
+                    # This bit does line stepping
+                    # sum of impulses signal thingy
+                    # using time varying tau
+                    sp = 0
+                    total_resp_tvt = [0] * end
+                    total_jumps_tvt = [0] * end
+                    add = 1
+                    while(sp < end):
+                        A = jump
+                        time = range(end- sp)
 
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    ### THIS SECTION USES PRESSURE DATA ###
+                        resp = [A*(exp(-(time[i]/sampling_frequency)/tau_array[sp]))
+                                for i in range(end- sp)]
 
-                    # Params from real pressure
-                    dependent = np.array([pressure[start_insp:end_insp]])
-                    independent = np.array([flow[start_insp:end_insp], volume[start_insp:end_insp]])
-                    res = lstsq(independent.T, dependent.T)
-                    Ea = res[0][1][0]
-                    Ra = res[0][0][0]
+                        for i in range(len(resp)):
+                            total_resp_tvt[sp + i] += resp[i]
 
-                    print('E from actual pressure: {}'.format(Ea))
-                    print('R from actual pressure: {}'.format(Ra))
-                    print('R/E from actual pressure: {}'.format(Ra/Ea))
-                    print('')
+                        total_jumps_tvt[sp] += 1
 
-                    takeClosest = lambda num,collection:min(collection,key=lambda x:abs(x-num))
-                    n = 0.63*(max(volume))
-                    i = takeClosest(n, volume)
-                    i = volume.index(i) - act_start_insp
-                    Fs = i/(Ra/Ea)
-                    REs = i/float(sampling_frequency)
-                    print('max: {}'.format(max(volume)))
-                    print('n: {}'.format(n))
-                    print('i: {}'.format(i))
-                    print('REs: {}'.format(REs))
-                    print('Fs: {}'.format(Fs))
+                        i = 0
+                        inc = False
+                        add = 1
+                        while(i < len(resp)):
+                            if(total_resp_tvt[i+sp] < flow[i+sp]):
+                                sp += i
+                                inc = True
+                                i = len(resp)
+                            i += 1
 
-                    # Remake pressure and flow from parameters
-                    remade_pres = [Ea*volume[i] + Ra*flow[i] for i in range(len(flow)/2)]
-                    remade_flow = [(pressure[i] - Ea*volume[i])/Ra for i in range(len(flow)/2)]
+                        if(not inc):
+                            if(sp < end*0.5 and altering_value):
+                                tau_array = [tau_array[0]*0.92]*end
+                                print('New: {}'.format(0.92*tau_array[0]))
+                                total_resp_tvt = [0] * end
+                                total_jumps_tvt = [0] * end
+                                sp = 0
+                            else:
+                                sp = end
 
-                    # Scale the pressure up
-                    # Assuming the E calculated by estimate is correct
-                    # So scaling by real E. The E estimated is totally crap, though ;)
-                    scalinga = 1/Ea
-                    pressure_scaled = [p * scalinga
-                                       for p in pressure]
-                    pressure_fwd_sim_scaled = [p * scalinga
-                                               for p in remade_pres]
-                    P_est_scaled = [p * scalinga
-                                    for p in P_est]
+                        #plt.plot(flow[:end_insp])
+                        #plt.plot(total_resp_tvt)
+                        #plt.show()
 
+                    return(total_resp_tvt, total_jumps_tvt, tau_array[0])
 
+                jump = 0.01
+                res = fit_tau_to_flow(flow, end_insp, [tau]*end_insp, jump, False)
+                total_resp = res[0]
+                total_jumps = res[1]
+                print(time_varying_tau)
+                res = fit_tau_to_flow(flow, end_insp, [tau_slp]*end_insp, jump, True)
+                total_resp_tvt = res[0]
+                total_jumps_tvt = res[1]
+                new_tau_slp= res[2]
 
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                plt.plot(flow[:end_insp], 'b', linewidth=2)
+                plt.plot(total_resp, 'g:')
+                plt.plot(total_resp_tvt, 'r:')
+                plt.plot(range(Q_max_index, end_insp),
+                        [Q_max*exp(-t/sampling_frequency/tau)
+                        for t in range(end_insp-Q_max_index)])
+                plt.plot(range(Q_max_index, end_insp),
+                        [Q_max*exp(-t/sampling_frequency/tau_slp)
+                        for t in range(end_insp-Q_max_index)])
+                plt.plot(range(Q_max_index, end_insp),
+                        [Q_max*exp(-t/sampling_frequency/new_tau_slp)
+                        for t in range(end_insp-Q_max_index)])
+                plt.legend([
+                            'flow',
+                            'fit to real tau',
+                            'fit to guessed tau',
+                            'Decay from data',
+                            'Decay estimate',
+                            'Updated decay estimate',
+                            ])
+                plt.show()
 
-                    if(0):
-                        f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
-                        plot_end = len(flow)/2
-                        ax1.set_title(file_type)
+                print(total_jumps)
+                print(total_jumps_tvt)
 
+                or i in range(len(total_jumps)):
+                    total_jumps[i] *= jump*tau
+                for i in range(len(total_jumps_tvt)):
+                    total_jumps_tvt[i] *= jump*new_tau_slp#(time_varying_tau[0]/time_varying_tau[i])
 
-                        ax1.plot(pressure_scaled[0:plot_end], 'b-', linewidth=3)
-                        ax1.plot(range(plot_end), pressure_fwd_sim_scaled, 'k-', linewidth=2)
-                        ax1.plot(range(plot_end), P_est, 'c-')
-                        ax1.plot(range(start,end), pressure_estimation, 'r.')
-                        ax1.plot(range(start,end), pressure_estimation_updated, 'm-', linewidth=3)
-                        ax1.plot(range(start), jump, 'g-', linewidth=3)
-                        ax1.plot([pressure_offset + v for v in volume[:end_insp]])
-                        ax1.plot(start_insp, pressure_scaled[start_insp], 'go')
-                        ax1.plot(end_insp, pressure_scaled[end_insp], 'ro')
-                        ax1.legend([
-                                    'Pressure (scaled to P/E)',
-                                    'Forward sim from data (scaled to P/E)',
-                                    'Forward sim from estimate',
-                                    'Original estimate',
-                                    'Updated estimate',
-                                    'Jump estimate',
-                                    ], loc=4)
+                # Pressure guess
+                # Guesses at P/R, I think...????
+                # Is integral of all the jumps recorded scaled by the jump size
+                guessy_pressure = [0]*len(total_jumps)
+                for i in range(1, len(guessy_pressure)):
+                    guessy_pressure[i] = guessy_pressure[i-1] + total_jumps[i-1]
 
-                        ax2.plot(flow[0:plot_end], 'r-', linewidth=3)
-                        ax2.plot(range(plot_end), remade_flow, 'b-')
-                        ax2.plot(range(start,end), Q_orig, 'm*-')
-                        ax2.plot(start_insp, flow[start_insp], 'go')
-                        ax2.plot(act_start_insp, flow[act_start_insp], 'mo')
-                        ax2.plot(end_insp, flow[end_insp], 'ro')
-                        ax2.legend([
-                                    'Flow',
-                                    'Forward sim from data',
-                                    'Forward sim from estimate',
-                                    ])
+                guessy_pressure_tvt = [0]*len(total_jumps)
+                for i in range(1, len(guessy_pressure_tvt)):
+                    guessy_pressure_tvt[i] = guessy_pressure_tvt[i-1] + total_jumps_tvt[i-1]
+                guessy_pressure_scaled = [g/max(guessy_pressure_tvt)*max(guessy_pressure) for g in guessy_pressure_tvt]
 
-                        ax3.plot(volume[0:end_insp],'yx-')
-                        ax3.plot(act_start_insp, volume[act_start_insp], 'mo')
-                        ax3.legend([
-                                    'R/E',
-                                    ])
+                dependent = np.array([guessy_pressure])
+                independent = np.array([volume[:end_insp], flow[:end_insp]])
+                res = lstsq(independent.T, dependent.T)
+                print(res)
+                print(res[0][1][0]/res[0][0][0])
 
-                        ax1.grid()
-                        ax2.grid()
-                        ax3.grid()
-                        plt.show()
+                if(1):
+                    f, (ax1, ax2, ax3) = plt.subplots(3, sharex=True)
+                    plot_end = len(flow)/2
+                    ax1.set_title(file_type)
 
-                ER_actual.append(Ra/Ea)
-                ER_simulated.append(REs)
+                    ax1.plot(pressure_scaled[:plot_end], 'b-', linewidth=3)
+                    ax1.plot(range(plot_end), pressure_fwd_sim_scaled, 'k-', linewidth=2)
+                    ax1.plot(guessy_pressure, 'g')
+                    ax1.plot(guessy_pressure_tvt, 'r')
+                    ax1.plot(guessy_pressure_scaled)
+                    ax1.legend([
+                                'Pressure (scaled to P/E)',
+                                'Forward sim from data (scaled to P/E)',
+                                'fit to real tau',
+                                'fit to guessed tau',
+                                ], loc=4)
 
-        try:
+                    ax2.plot(flow[0:plot_end], 'r-', linewidth=3)
+                    ax2.plot(range(plot_end), remade_flow, 'b-')
+                    ax2.plot(range(Q_max_index, end_insp), Q_est)
+                    ax2.plot(range(Q_max_index, end_insp), [Q_max*exp(-t/sampling_frequency/tau) for t in range(end_insp-Q_max_index)])
+                    ax2.plot(range(Q_max_index, end_insp), [Q_max*exp(-t/sampling_frequency/tau_slp) for t in range(end_insp-Q_max_index)])
+                    ax2.legend([
+                                'Flow',
+                                'Flow, fwd sim',
+                                'Flow from decay rate',
+                                'Underlying decay rate',
+                                'Guess at underlying decay rate',
+                                ])
+
+                    ax3.plot(volume[0:end_insp],'yx-')
+                    ax3.plot(range(act_start_insp, V_max_index), V_est)
+                    ax3.legend([
+                                'Volume',
+                                'Volume from decay rate',
+                                ])
+
+                    ax1.grid()
+                    ax2.grid()
+                    ax3.grid()
+                    plt.show()
+
+                #ER_actual.append(Ra/Ea)
+                #ER_simulated.append(REs)
+
+        #try:
             #corr = np.correlate(ER_actual, ER_simulated)
-            corr = pearsonr(ER_actual, ER_simulated)
-            print('Correlation: {}'.format(corr))
-        except:
-            pass
+            #corr = pearsonr(ER_actual, ER_simulated)
+            #print('Correlation: {}'.format(corr))
+        #except:
+            #pass
 
-        if(1):
-            f, (ax3) = plt.subplots(1, sharex=True)
-            ax3.set_title(file_type)
+        #if(1):
+            #f, (ax3) = plt.subplots(1, sharex=True)
+            #ax3.set_title(file_type)
 
-            ax3.plot(ER_actual, 'or')
-            ax3.plot(ER_simulated, '^b')
-            ax3.legend(['Directly calculated from data', 'Estimated'])
-            ax3.set_ylabel('Resistance/Elastance')
-            ax3.set_xlabel('Breath')
-            ax3.grid()
+            #ax3.plot(ER_actual, 'or')
+            #ax3.plot(ER_simulated, '^b')
+            #ax3.legend(['Directly calculated from data', 'Estimated'])
+            #ax3.set_ylabel('Resistance/Elastance')
+            #ax3.set_xlabel('Breath')
+            #ax3.grid()
 
-            file = '~/Doc'
-
-            plt.show()
+            #plt.show()
 

@@ -19,7 +19,7 @@ from numpy.linalg import lstsq
 def simulate_time_varying_elastance(pressure, flow, volume, R_aw):
     length = len(pressure)
     P_change = [(pressure[i] + R_aw*flow[i]) for i in range(length)]
-    E_t = [P_change[i]/volume[i] for i in range(length)]
+    E_t = [flow[i]/volume[i] for i in range(length)]
     return E_t
 
 def simulate_driving_pressure(flow, volume, E_t, R_aw, R_sp):

@@ -34,7 +34,7 @@ class Chunk:
         # find the volume and flow in the chunk
         self.volume = vol[self.start : (self.start+self.size)]
         self.flow = flw[self.start : (self.start+self.size)]
-        self.pressure = pres[self.start : (self.start+self.size)]
+        self.pressure = [1]*self.size
         if(min(self.volume) > self.MIN_V):
 
             # Use look-up table to find resistance in the chunk
@@ -75,7 +75,7 @@ def analysis(filename, plot=False, plot_path='\0'):
     sampling_frequency = 125
     INSP = 0
     EXP = 1
-    vol_offset = 0
+    vol_offset = 2
     pres_offset = 0
 
     # Remove any old data sets hanging around
