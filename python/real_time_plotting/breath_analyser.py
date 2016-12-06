@@ -11,11 +11,13 @@ import numpy as np
 import serial
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from collections import deque
+import cProfile, pstats, StringIO
+import time
 
 from queue_manager import get_queue_item
 from serial_monitor import SerialMonitorThread
 from livedatafeed import LiveDataFeed
+from analogue_plotter import AnalogPlot
 
 '''
 TODO:
@@ -24,38 +26,12 @@ TODO:
     Get plotter plotting
 '''
 
-class AnalogPlot():
-    def __init__(self, max_len):
-        self.ax = deque([0.0]*max_len)
-        self.ay = deque([0.0]*max_len)
-        self.max_len = max_len
-
-    def addToBuf(self, buf, val):
-        # Adding to right and removing from left
-        # so image scrolls nicely
-        if len(buf) < self.maxLen:
-            buf.append(val)
-        else:
-            buf.popleft()
-            buf.append(val)
-
-    def add(self, data):
-        # add data to 2 buffers
-        assert(len(data) == 2)
-        self.addToBuf(self.ax, data[0])
-        self.addToBuf(self.ay, data[1])
-
-    def update(self, frameNum, data_q, a0, a1):
-        serial_item = get_queue_item(data_q)
-        if serial_item is not None:
-            print(serial_item)
-
 class PlottingDataMonitor():
     def __init__(self):
         self.serial_monitor = None
         self.serial_data_q = None
         self.serial_error_q = None
-        self.portname = 'tty/USB0'
+        self.portname = '/dev/ttyUSB0'
 
     def start_up(self):
         '''
@@ -78,7 +54,7 @@ class PlottingDataMonitor():
             self.serial_error_q,
             self.portname,
             9600)
-        self.serial_monitor.run()
+        self.serial_monitor.start()
 
         # If there was an error starting, shut down again
         serial_error = get_queue_item(self.serial_error_q)
@@ -95,20 +71,33 @@ class PlottingDataMonitor():
 
         # Set up the animation
         fig = plt.figure()
-        ax = plt.axes(xlim=(0, 1000), ylim=(-580, 580))
+        ax = plt.axes()
+        ax.set_xlim(0, 1000)
+        ax.set_ylim(-580, 580)
+        ax.grid()
         a0, = ax.plot([], [])
         a1, = ax.plot([], [])
-        anim = animation.FuncAnimation(fig, plotter.update,
-            fargs=(self.serial_data_q, a0, a1),
-            interval=1,
-            blit=True)
+        print('Begin animation')
 
-        # show plot
-        plt.show()
+        try:
+            while(1):
+                time.sleep(1)
+                print('awake')
+            anim = animation.FuncAnimation(fig, plotter.update_serial,
+                fargs=(self.serial_data_q, a0, a1),
+                interval=16,
+                blit=True)
 
-        # Close serial therad
-        self.serial_monitor.join()
-        print('exiting.')
+            # show plot
+            plt.show()
+
+
+        except(KeyboardInterrupt):
+            # Close serial therad
+            print('exiting.')
+
+        while(self.serial_monitor.is_alive()):
+            self.serial_monitor.join()
 
 
 

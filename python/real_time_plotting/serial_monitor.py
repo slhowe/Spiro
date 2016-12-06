@@ -40,15 +40,20 @@ class SerialMonitorThread(threading.Thread):
                     port_baud,
                     port_stopbits=serial.STOPBITS_ONE,
                     port_parity=serial.PARITY_NONE,
-                    port_timeout=0.01):
+                    port_timeout=None # Blocking. Waits for \r\n at eol
+                    ):
         threading.Thread.__init__(self)
 
+        '''
+        TODO: How to check port actually exists
+        '''
         self.serial_port = None
         self.serial_arg = dict( port=port_num,
                                 baudrate=port_baud,
                                 stopbits=port_stopbits,
                                 parity=port_parity,
-                                timeout=port_timeout)
+                                timeout=port_timeout
+                              )
 
         self.data_q = data_q
         self.error_q = error_q
@@ -56,7 +61,13 @@ class SerialMonitorThread(threading.Thread):
         self.alive = threading.Event()
         self.alive.set()
 
+        self.start_time = None
+        self.sampling_period = 1.0/60
+
+        print('Thread Setup')
+
     def run(self):
+        # Try connect to serial
         try:
             if self.serial_port:
                 self.serial_port.close()
@@ -65,20 +76,28 @@ class SerialMonitorThread(threading.Thread):
             self.error_q.put(e.message)
             return
 
-        # Restart the clock
-        time.clock()
+        # Start of thread
+        self.start_time = time.time()
+        timestamp = 0
 
         while self.alive.isSet():
-            # Reading 1 byte, followed by whatever is left in the
-            # read buffer, as suggested by the developer of
-            # PySerial.
-            #
+            '''
+            TODO: Check SerialException
+                  Triggered if port already used or suddenly disconnected
+            '''
             line = self.serial_port.readline()
-            data = [float(val) for val in line.split(",")]
+            try:
+                data = [float(val) for val in line.split(",")]
+                if len(data) == 2:
+                    timestamp = time.time() - self.start_time
+                    self.last_time = timestamp
+                    self.data_q.put((data, timestamp))
+            except(ValueError):
+                print('Could not convert serial data to float')
 
-            if len(data) == 2:
-                timestamp = time.clock()
-                self.data_q.put((data, timestamp))
+            # Suspend current thread to force sampling frequency
+            time.sleep(self.sampling_period)
+            #print(time.time() - self.start_time - timestamp)
 
         # clean up
         if self.serial_port:

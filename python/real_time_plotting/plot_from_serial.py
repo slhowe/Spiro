@@ -44,13 +44,13 @@ class AnalogPlot:
           if(len(data) == 2):
               self.add(data)
               a0.set_data(range(self.maxLen), self.ax)
-              #a1.set_data(range(self.maxLen), self.ay)
+              a1.set_data(range(self.maxLen), self.ay)
       except KeyboardInterrupt:
           print('exiting')
       except ValueError:
           print('ValueError')
 
-      return a0,
+      return a0, a1
 
   # clean up
   def close(self):
