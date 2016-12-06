@@ -31,6 +31,8 @@ class PlottingDataMonitor():
         self.serial_monitor = None
         self.serial_data_q = None
         self.serial_error_q = None
+        self.plotter = None
+        self.analyser = None
         self.portname = '/dev/ttyUSB0'
 
     def start_up(self):
@@ -45,7 +47,7 @@ class PlottingDataMonitor():
             return
 
         # Data and error queues
-        self.serial_data_q = Queue.Queue()
+        self.serial_data_q = Queue.LifoQueue()
         self.serial_error_q = Queue.Queue()
 
         # Start the serial monitor
@@ -65,11 +67,12 @@ class PlottingDataMonitor():
         print('Monitor running')
 
     def run_the_thing(self):
-        plotter = AnalogPlot(1000)
+        self.plotter = AnalogPlot(1000, 25)
 
         print('Plotting data')
 
         # Set up the animation
+        #plt.ion()
         fig = plt.figure()
         ax = plt.axes()
         ax.set_xlim(0, 1000)
@@ -80,17 +83,25 @@ class PlottingDataMonitor():
         print('Begin animation')
 
         try:
-            while(1):
-                time.sleep(1)
-                print('awake')
-            anim = animation.FuncAnimation(fig, plotter.update_serial,
+#            while(1):
+#                time.sleep(1)
+#                print('awake')
+            anim = animation.FuncAnimation(fig, self.plotter.update_serial,
                 fargs=(self.serial_data_q, a0, a1),
-                interval=16,
+                interval=195,
                 blit=True)
 
             # show plot
             plt.show()
-
+#
+#            # show plot
+#            plt.show()
+#            while(1):
+#                # This takes about 10 ms to run
+#                # Updating at 25 HZ gives 40 ms period
+#                # --> Sleep 30 ms then wake and plot
+#                self.plotter.update_serial(fig, self.serial_data_q, a0, a1)
+#                fig.canvas.draw()
 
         except(KeyboardInterrupt):
             # Close serial therad
