@@ -18,6 +18,7 @@ from queue_manager import get_queue_item
 from serial_monitor import SerialMonitorThread
 from livedatafeed import LiveDataFeed
 from analogue_plotter import AnalogPlot
+from analyser import ExprDecayAnalyser
 
 '''
 TODO:
@@ -33,6 +34,8 @@ class PlottingDataMonitor():
         self.serial_error_q = None
         self.plotter = None
         self.analyser = None
+        self.analysis_results_q = None
+        self.analyser_data_q = None
         self.portname = '/dev/ttyUSB0'
 
     def start_up(self):
@@ -50,8 +53,13 @@ class PlottingDataMonitor():
         self.serial_data_q = Queue.LifoQueue()
         self.serial_error_q = Queue.Queue()
 
+        # Analyser input/output queues
+        self.analyser_data_q = Queue.Queue()
+        self.analyser_results_q = Queue.Queue()
+
         # Start the serial monitor
         self.serial_monitor = SerialMonitorThread(
+            self.analyser_data_q,
             self.serial_data_q,
             self.serial_error_q,
             self.portname,
@@ -65,6 +73,12 @@ class PlottingDataMonitor():
             self.serial_monitor = None
 
         print('Monitor running')
+
+        # Start data analysis
+        self.analyser = ExprDecayAnalyser(self.analyser_data_q,
+                self.analyser_results_q
+                )
+        self.analyser.start()
 
     def run_the_thing(self):
         self.plotter = AnalogPlot(1000, 25)

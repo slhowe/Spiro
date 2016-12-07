@@ -35,7 +35,7 @@ class SerialMonitorThread(threading.Thread):
             it will also consume more CPU.
     """
     def __init__(   self,
-                    data_q, error_q,
+                    analyser_data_q, serial_data_q, serial_error_q,
                     port_num,
                     port_baud,
                     port_stopbits=serial.STOPBITS_ONE,
@@ -55,8 +55,9 @@ class SerialMonitorThread(threading.Thread):
                                 timeout=port_timeout
                               )
 
-        self.data_q = data_q
-        self.error_q = error_q
+        self.analyser_data_q = analyser_data_q
+        self.serial_data_q = serial_data_q
+        self.serial_error_q = serial_error_q
 
         self.alive = threading.Event()
         self.alive.set()
@@ -74,7 +75,7 @@ class SerialMonitorThread(threading.Thread):
                 self.serial_port.close()
             self.serial_port = serial.Serial(**self.serial_arg)
         except serial.SerialException, e:
-            self.error_q.put(e.message)
+            self.serial_error_q.put(e.message)
             return
 
         timestamp = 0
@@ -93,7 +94,9 @@ class SerialMonitorThread(threading.Thread):
                         timestamp = current_time - self.start_time
                         print(1/(current_time - self.last_time))
                         self.last_time = current_time
-                        self.data_q.put((data, timestamp))
+
+                        self.serial_data_q.put((data, timestamp))
+                        self.analyser_data_q.put((data, timestamp))
             except(ValueError):
                 print('Could not convert serial data to float')
 

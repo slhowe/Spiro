@@ -7,7 +7,8 @@ class ExprDecayAnalyser(threading.Thread):
     exponential decays in expiration data.
     """
     def __init__(self,
-                 data_q
+                 data_q,
+                 results_q
                  ):
         threading.Thread.__init__(self)
 
@@ -32,4 +33,8 @@ class ExprDecayAnalyser(threading.Thread):
             # Fit exp decay
 
             # Results
-            pass
+            print('I\'m alive!!!!')
+
+    def join(self, timeout=None):
+        self.alive.clear()
+        threading.Thread.join(self, timeout)
