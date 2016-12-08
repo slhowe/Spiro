@@ -12,13 +12,11 @@ Values are plotted as two concurrent lines
 """
 
 class AnalogPlot():
-    def __init__(self, max_len, sampling_freq):
+    def __init__(self, max_len):
         self.pressure = deque([0.0]*max_len)
         self.flow = deque([0.0]*max_len)
         self.time = deque([0.0]*max_len)
         self.max_len = max_len
-        self.update_period = 1.0/sampling_freq
-        self.last_update = 0
 
     def addToBuf(self, buf, val):
         # Adding to right and removing from left
@@ -35,11 +33,9 @@ class AnalogPlot():
         self.addToBuf(self.pressure, data[0])
         self.addToBuf(self.flow, data[1])
 
-    def update_serial(self, frameNum, data_q, a0, a1):
-        #if(time.time() - self.last_update >= self.update_period):
+    def animate(self, frameNum, data_q, a0, a1):
         serial_item = get_queue_item(data_q)
         if serial_item is not None:
-            self.last_update = time.time()
             print(serial_item)
             # Get time
             #self.addToBuf(self.time, serial_item[1])

@@ -92,7 +92,7 @@ class SerialMonitorThread(threading.Thread):
                     data = [float(val) for val in line.split(",")]
                     if len(data) == 2:
                         timestamp = current_time - self.start_time
-                        print(1/(current_time - self.last_time))
+                        #print(1/(current_time - self.last_time))
                         self.last_time = current_time
 
                         self.serial_data_q.put((data, timestamp))

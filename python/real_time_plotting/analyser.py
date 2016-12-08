@@ -1,5 +1,7 @@
+#!/usr/bin/python
 import Queue
 import threading
+import time
 
 class ExprDecayAnalyser(threading.Thread):
     """
@@ -33,7 +35,9 @@ class ExprDecayAnalyser(threading.Thread):
             # Fit exp decay
 
             # Results
-            print('I\'m alive!!!!')
+            while self.alive.isSet():
+                print('Me too!!!!')
+                time.sleep(100)
 
     def join(self, timeout=None):
         self.alive.clear()
