@@ -121,7 +121,7 @@ def split_breaths(data, peak_height=0.1, Fs=125, filt=True, plot=False):
     midpoints = []
     endpoints = []
 
-    if(filt and plot):
+    if(filt):
         # Filter the shit out of the signal
         data = hamming(data, 3, Fs, 6, plot)
         data = real(data).tolist()
