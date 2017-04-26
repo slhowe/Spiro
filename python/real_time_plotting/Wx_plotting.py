@@ -24,7 +24,7 @@ class SeaofB(tk.Tk):
     def __init__(self, *args, **kwargs):
 
         tk.Tk.__init__(self, *args, **kwargs)
-        tk.Tk.wm_title(self, "Sea of BTC client")
+        tk.Tk.wm_title(self, "Gurtrude")
 
         self.serial_monitor = None
         self.serial_data_q = None
@@ -112,11 +112,22 @@ class ResultsPage(tk.Frame):
 
         button = ttk.Button(self, text="Graph page",
                             command=lambda: controller.show_frame(PlotPage))
-        button.grid(column=1, row=1, sticky='EW')
+        button.grid(column=1, row=0, sticky='EW')
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
+        ax_results.plot([[0,1],[1,4],[2,6],[3,9],[4,1]])
+
+        results_canvas = FigureCanvasTkAgg(fig_results, self)
+#        results_canvas.show()
+        #results_canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        #results_canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        results_canvas.get_tk_widget().grid(column=0, row=1, sticky='NSEW')
+
+#        toolbar_results = NavigationToolbar2TkAgg(results_canvas, self)
+#        toolbar_results.update()
+        #results_canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 class PlotPage(tk.Frame):
 
@@ -130,31 +141,36 @@ class PlotPage(tk.Frame):
         button1.pack()
 
 
-        canvas = FigureCanvasTkAgg(fig, self)
+        canvas = FigureCanvasTkAgg(fig_animated, self)
         canvas.show()
         canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
-        toolbar = NavigationToolbar2TkAgg(canvas, self)
-        toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+#        toolbar = NavigationToolbar2TkAgg(canvas, self)
+#        toolbar.update()
+#        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-LARGE_FONT= ("Verdana", 12)
+LARGE_FONT = ("Arial", 12)
 style.use("ggplot")
 
-fig = Figure(figsize=(5,5), dpi=100)
-ax = fig.add_subplot(111)
+# Setup for animated plotting
+fig_animated = Figure(figsize=(5,5), dpi=100)
+ax = fig_animated.add_subplot(111)
 plot_length = 100
 ax.set_xlim(0, plot_length)
 ax.set_ylim(-580, 580)
 a0, = ax.plot([], [])
 a1, = ax.plot([], [])
 
+# Setup for plotting results
+fig_results = Figure(figsize=(5,5), dpi=100)
+ax_results = fig_results.add_subplot(111)
+
 app = SeaofB()
 app.start_serial_monitor()
 app.initialise_plot(plot_length)
-ani = animation.FuncAnimation(fig, app.plotter.animate,
+ani = animation.FuncAnimation(fig_animated, app.plotter.animate,
                             fargs=(app.serial_data_q, a0, a1),
                             interval=100,
                             blit=True

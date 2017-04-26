@@ -1,0 +1,22 @@
+# Resistances, voltages and capacitances
+# for simulated data is listed here:
+#
+# V_added R_added R_spirometer V_driving C_lung R_aw frequency
+
+# Dataset 1
+10, 9, 1, 250, 20m, 10, 100Hz
+
+# Dataset 1a
+10, 9, 1, 250, 20m, 10, 1000Hz
+
+# Dataset 1b
+10, 9, 1, 250, 20m, 10, 10000Hz
+
+# Dataset 2
+10, 1, 1, 250, 20m, 10, 100Hz
+
+# Dataset 3
+100, 9, 1, 250, 20m, 10, 100Hz
+
+# Dataset 4
+Iadded = 1A, 1ohm, 1sin(wt), 1F, 10ohm, 100Hz
