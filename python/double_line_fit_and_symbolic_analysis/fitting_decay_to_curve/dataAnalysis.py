@@ -32,7 +32,7 @@ dataset_2.init_start_indices([2475, 5737, 8939])
 dataset_1.init_end_indices([2000, 4634, 7938])
 dataset_2.init_end_indices([3000, 6150, 9340])
 
-finding_flow = False
+finding_flow = True
 dataset_1.finding_flow = finding_flow
 dataset_2.finding_flow = finding_flow
 if finding_flow:
@@ -124,18 +124,18 @@ for dataset in pe.Data:
             decay_info = 'Decay Rates\nHigh: {0:.2f}'.format(dataset.decay[test][0][0]) + ' \nLow: {0:.2f}'.format(dataset.decay[test][1][0])
             if dataset.finding_flow:
                 curve = dataset.flow[curve_start:curve_end]
-                ax1.text(3.2, 3.9, decay_info, fontsize=12)
-                ax1.set_ylabel("Flow (L/s)")
+                ax1.text(3.2, 3.9, decay_info, fontsize=20)
+                ax1.set_ylabel("Flow (L/s)", fontsize=20)
                 fig_name = '{}Flow_{}_{}.png'.format(plot_path, dataset.name, test+1)
             else:
                 curve = dataset.pressure[curve_start:curve_end]
-                ax1.text(3.2, 0.49, decay_info, fontsize=12)
-                ax1.set_ylabel("Pressure (kPa)")
+                ax1.text(3.2, 0.49, decay_info, fontsize=18)
+                ax1.set_ylabel("Pressure (kPa)", fontsize=18)
                 fig_name = '{}Pressure_{}_{}.png'.format(plot_path, dataset.name, test+1)
 
             ax1.plot(times, curve, 'b', times, H_curve, 'r', times, L_curve, 'g')
-            ax1.legend(['Measured Data','Exponential fit (High)','Exponential fit (Low)'])
-            ax1.set_xlabel('Time (s)')
+            ax1.legend(['Measured Data','Exponential fit (High)','Exponential fit (Low)'], fontsize=18)
+            ax1.set_xlabel('Time (s)', fontsize=18)
             ax1.grid(True)
 
             saving = False

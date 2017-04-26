@@ -121,4 +121,23 @@ def PS_vs_NAVA_noninvasive_data(mat):
 
     return([split_pressure, split_flow])
 
+def sedation_changes_data(mat, key, breath):
+
+    parent_data = mat[key]
+    data = parent_data['Breath'][breath][0]
+
+    pressure = [0]*len(data)
+    flow = [0]*len(data)
+    volume = [0]*len(data)
+
+    for i in range(len(data)):
+        pressure[i] = data[i][1]
+        flow[i] = data[i][0]
+        volume[i] = data[i][2]
+
+    return([pressure, flow, volume])
+
+
+
+
 

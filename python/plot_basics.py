@@ -10,7 +10,7 @@ from data_struct import DataStore as Data
 
 path = '/home/sarah/Documents/Spirometry/python/'
 files = [
-        'spir_record.csv'
+        'data_recording.csv'
          ]
 
 # Create data classes

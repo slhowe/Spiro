@@ -184,6 +184,10 @@ def hamming(data, fc, fs, bw, plot=False):
         plt.plot(np.abs(fft(window)))
         plt.show()
 
+        freqs = [f/float(fs) for f in range(len(fft_signal))]
+        plt.plot(freqs, abs(fft_signal))
+        plt.show()
+
         plt.plot(data)
         plt.plot(filtered_signal)
         plt.show()

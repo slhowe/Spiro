@@ -587,7 +587,7 @@ if(__name__ == '__main__'):
                 print(total_jumps)
                 print(total_jumps_tvt)
 
-                or i in range(len(total_jumps)):
+                for i in range(len(total_jumps)):
                     total_jumps[i] *= jump*tau
                 for i in range(len(total_jumps_tvt)):
                     total_jumps_tvt[i] *= jump*new_tau_slp#(time_varying_tau[0]/time_varying_tau[i])
@@ -599,7 +599,7 @@ if(__name__ == '__main__'):
                 for i in range(1, len(guessy_pressure)):
                     guessy_pressure[i] = guessy_pressure[i-1] + total_jumps[i-1]
 
-                guessy_pressure_tvt = [0]*len(total_jumps)
+                guessy_pressure_tvt = [0]*len(total_jumps_tvt)
                 for i in range(1, len(guessy_pressure_tvt)):
                     guessy_pressure_tvt[i] = guessy_pressure_tvt[i-1] + total_jumps_tvt[i-1]
                 guessy_pressure_scaled = [g/max(guessy_pressure_tvt)*max(guessy_pressure) for g in guessy_pressure_tvt]

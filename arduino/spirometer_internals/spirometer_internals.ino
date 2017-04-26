@@ -5,8 +5,8 @@
  */
 void setup();
 float abs_pressure_conversion();
-void convert_to_Pa(int* value, int Pmin, int Pmax);
-void convert_to_Pa_abs(int* value, unsigned long Pa_per_bit);
+void convert_to_Pa_ASDX(int* value, int Pmin, int Pmax);
+void convert_to_Pa_RBIP(int* value, unsigned long Pa_per_bit);
 static inline int8_t sgn(float val);
 int convert_Pa_to_L_min(float value, float sqr_const, float lin_const);
 
@@ -27,27 +27,27 @@ void loop() {
 
   while(1){
     // read the input
-    int diff_pressure = analogRead(A0);
-    int diff_pressure_abs = analogRead(A1);
+    int flow_measurement = analogRead(A1);
+    int pressure_measurement = analogRead(A0);
 
     // Convert reading to pressure
-    convert_to_Pa_abs(&diff_pressure_abs, Pa_per_bit);
-    convert_to_Pa(&diff_pressure, Pmin, Pmax);
-    diff_pressure += 7;
+    convert_to_Pa_ASDX(&pressure_measurement, Pmin, Pmax);
+    convert_to_Pa_RBIP(&flow_measurement, Pa_per_bit);
+    flow_measurement += 4;
 
     // Convert differential pressure to flow
-    int flow = convert_Pa_to_L_min((float)diff_pressure, sqr_const, lin_const);
+    int flow = convert_Pa_to_L_min((float)flow_measurement, sqr_const, lin_const);
+
+    // Timestamp
+    int timestamp = millis();
 
     // print out the values
-    //Serial.print("abs ");
-    //Serial.print(diff_pressure_abs);
-    //Serial.print(", diff ");
-    //Serial.print(",");
-    //Serial.print(diff_pressure_abs);
-    //Serial.print(",");
-    Serial.print(diff_pressure);
+    Serial.print(pressure_measurement);
     Serial.print(",");
-    Serial.println(flow);
+    Serial.print(flow);
+    Serial.print(",");
+    Serial.print(timestamp);
+    Serial.print("\n");
 
   }
 }
@@ -64,7 +64,7 @@ void setup() {
  */
 float abs_pressure_conversion(void){
   // Values from datasheet (R B I P 0 0 1 D U)
-  float Pa_per_mV = 1.7;
+  float Pa_per_mV = 1.72369;
   float mV_per_bit = 4.887585;
   float conversion = Pa_per_mV * mV_per_bit;
   return conversion;
@@ -78,7 +78,7 @@ float abs_pressure_conversion(void){
  *  -----------------------------
  *           (0.8*Vs)
  */
-void convert_to_Pa(int* value, int Pmin, int Pmax){
+void convert_to_Pa_ASDX(int* value, int Pmin, int Pmax){
   /* Convert from bits to volts
    * 4.887585 mv per bit
    * 1000 mv per V
@@ -95,8 +95,9 @@ void convert_to_Pa(int* value, int Pmin, int Pmax){
 
 /* Convert bit value returned by analogue pin
  * to Pa for the absolute pressure sensor
+ * (R B I P 0 0 1 D U)
  */
-void convert_to_Pa_abs(int* value, unsigned long Pa_per_bit){
+void convert_to_Pa_RBIP(int* value, unsigned long Pa_per_bit){
   // 0 Pa not at 0 bits
   float temp_value = *value - BIT_OFFSET;
 

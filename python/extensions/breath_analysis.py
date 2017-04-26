@@ -65,7 +65,7 @@ def split_breaths(data, peak_height=0.1, Fs=125, filt=True, plot=False):
 
     def check_crossings_valid(data, startpoints, midpoints, endpoints, peak_height, Fs=125):
         ''' Check the breaths are sine-y and are long enough '''
-        MIN_RANGE = Fs
+        MIN_RANGE = Fs/2
 
         good_start = []
         good_middle = []
@@ -73,7 +73,7 @@ def split_breaths(data, peak_height=0.1, Fs=125, filt=True, plot=False):
         num_breaths = len(endpoints)
 
         # Look for peaks in inhalation and exhalation
-        # also check the breath is at least 1 second long
+        # also check the breath is at least 0.5 second long
         for breath in range(num_breaths):
             if((peak_in_range(data, startpoints[breath], midpoints[breath], peak_height))
             and(peak_in_range(data, midpoints[breath], endpoints[breath], peak_height))

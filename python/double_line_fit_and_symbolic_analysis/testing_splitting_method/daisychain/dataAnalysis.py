@@ -146,17 +146,13 @@ for file_index in range(len(files)):
 
     # Split all the breaths from the data
     data = BreathData(0)
+    mess_data = BreathData(0)
 
     # Find starts, middles and ends of flow data
-    flow_splits = split_breaths(dataset.pressure, peak_height=0.03, plot=True)
+    flow_splits = split_breaths(dataset.pressure, peak_height=0.03, plot=False)
     flow_starts = flow_splits[0]
     flow_middles = flow_splits[1]
     flow_stops = flow_splits[2]
-
-#    dots = [dataset.flow[i] for i in flow_starts]
-#    plt.plot(dataset.flow)
-#    plt.plot(flow_starts, dots, 'ro')
-#    plt.show()
 
     # calculate decays and offsets for data ranges
     breath = 0
@@ -172,27 +168,35 @@ for file_index in range(len(files)):
                       dataset.sampling_frequency
                       )
 
-        # Find Rsp
-        Rsp = lstsq(np.array([data.exp_flow]).T, np.array([data.exp_pressure]).T)
-        print(Rsp)
+        mess_data.get_data(dataset.pressure,
+                      flow,
+                      flow_starts[breath_num],
+                      flow_middles[breath_num],
+                      flow_stops[breath_num],
+                      dataset.sampling_frequency
+                      )
 
-        plt.plot(data.insp_pressure)
-        plt.plot(data.exp_pressure)
-        plt.plot(data.exp_flow, '*')
-        plt.plot([Rsp[0][0][0]*f for f in data.exp_flow])
-        plt.show()
 
-        print('Fitting to bottom half of data')
-        # Crappy data at start, dunno why...
-        # plastic flapping or sensor issues..?
         #P_max = max(data.insp_pressure)
 
+        # Crappy data at start, dunno why...
+        # plastic flapping or sensor issues..?
         percentage_to_drop = 0.5
         line_fit_start = find_drop_index(percentage_to_drop, data.insp_pressure)
 
         # Values might go negative too close to end, breaks log(x)
         percentage_to_drop = 0.95
         line_fit_end = find_drop_index(percentage_to_drop, data.insp_pressure)
+
+        # Find Rsp
+        Rsp = lstsq(np.array([data.insp_flow[line_fit_end:]]).T, np.array([data.insp_pressure[line_fit_end:]]).T)
+        print('Res: {}'.format(Rsp))
+
+        #plt.plot(data.insp_pressure)
+        plt.plot(data.exp_pressure)
+        #plt.plot(data.exp_flow, '*')
+        plt.plot([Rsp[0][0][0]*f for f in data.exp_flow])
+        plt.show()
 
         plt.plot(data.insp_pressure)
         plt.plot(line_fit_start, data.insp_pressure[line_fit_start], 'go')
@@ -202,8 +206,6 @@ for file_index in range(len(files)):
         parameters = exponential_fit(line_fit_start, line_fit_end, data.insp_pressure)
         dataset.offset.append(parameters[0])
         dataset.decay.append(parameters[1])
-        print(dataset.offset[-1])
-        print(dataset.decay[-1])
 
 
         #~~~~~~ Remake curves ~~~~~~
@@ -234,6 +236,7 @@ for file_index in range(len(files)):
 
             ax1.plot(
                     times, data.insp_pressure, 'b',
+                    times, mess_data.insp_pressure, 'orange',
                     times[line_fit_start:line_fit_end], H_curve, 'r',
                     )
             ax1.legend(['Measured Data','Exponential fit (High)','Exponential fit (Low)'])

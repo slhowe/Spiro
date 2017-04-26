@@ -15,7 +15,7 @@ from numpy.linalg import lstsq
 #path = '/home/sarah/Documents/Spirometry/python/flowComparisons/'
 #files = ['Calibration_set']
 path = '/home/sarah/Documents/Spirometry/data/'
-files = ['Loops_1.csv']
+files = ['Loops_1.csv', 'Loops_3.csv']
 
 # Create data classes
 reset = Data('reset')
@@ -54,7 +54,7 @@ for dataset in Data:
 
     pressure = dataset.pressure
     flow = dataset.flow
-    fpressure = hamming(pressure, 5, 125, 2, plot=False)
+    fpressure = hamming(pressure, 5, 125, 2, plot=True)
     fflow= hamming(flow, 5, 125, 2, plot=False)
 
     # Uncomment if splitting data into breaths
