@@ -30,15 +30,18 @@ for i in range(len(files)):
         for row in reader:
             pressure = float(row[0])
             flow = float(row[1])
+            time = float(row[2])
 
             dataset.pressure.append(pressure)
             dataset.flow.append(flow)
+            dataset.time.append(time)
 
-    Fs = 90
-    time = [t/float(Fs) for t in range(len(dataset.pressure))]
 
-    plt.plot(time, dataset.pressure, 'b',
-             time, dataset.flow, 'r',
+#    plt.plot(dataset.time, dataset.pressure, 'b',
+#             dataset.time, dataset.flow, 'r',
+#             )
+    plt.plot(dataset.pressure, 'b',
+             dataset.flow, 'r',
              )
 
     plt.grid()

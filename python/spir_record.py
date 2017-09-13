@@ -41,8 +41,9 @@ def write_to_csv(csvwriter, data_array):
 
             mouth_pressure = float(clean_item[0])/1000.0
             flow = float(clean_item[1])/60.0
+            time = float(clean_item[2])/1000
 
-            csvwriter.writerow([mouth_pressure, flow])
+            csvwriter.writerow([mouth_pressure, flow, time])
 
 def create_csv(filename, data_array):
     with open(filename, 'w') as csvfile:

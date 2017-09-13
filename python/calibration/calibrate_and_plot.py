@@ -143,7 +143,7 @@ for i in range(len(other_files)):
         reader = csv.reader(csvfile, delimiter = ',')
 
         for row in reader:
-            data = float(row[0])
+            data = float(row[1])
             dataset.flow.append(data*1000)
 
     # filter flow
@@ -195,6 +195,6 @@ plt.legend([
      'resistance points from data',
     ])
 plt.grid()
-plt.xlabel('Pressure')
-plt.ylabel('Flow')
+plt.xlabel('Pressure Pa')
+plt.ylabel('Flow L/min')
 plt.show()

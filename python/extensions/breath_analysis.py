@@ -5,6 +5,7 @@ from filters import semi_gauss_lp_filter, hamming
 import matplotlib.pyplot as plt
 from math import pi
 from collections import Counter
+import numpy as np
 from numpy import real
 
 class BreathData:
@@ -45,7 +46,7 @@ class BreathData:
 
         self.time = [t/float(Fs) for t in range(self.insp_length + self.exp_length)]
 
-def split_breaths(data, peak_height=0.1, Fs=125, filt=True, plot=False):
+def split_breaths(data, peak_height=0.10, Fs=125, filt=True, plot=False):
     ''' Returns array of start and end indices for
         whole breaths in the data set.
         Function doesn't handle data that is noisy
@@ -125,6 +126,9 @@ def split_breaths(data, peak_height=0.1, Fs=125, filt=True, plot=False):
         # Filter the shit out of the signal
         data = hamming(data, 3, Fs, 6, plot)
         data = real(data).tolist()
+        for v in range(len(data)):
+            if np.abs(data[v]) < 0.05:
+                data[v] = 0
 
     # Find the crossing points and check they are good
     find_crossings_and_midpoints(data, startpoints, midpoints, endpoints)

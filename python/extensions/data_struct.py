@@ -19,6 +19,7 @@ class DataStore:
         self._registry.append(self)
         self.pressure = []
         self.flow = []
+        self.time = []
         self.sampling_frequency = Fs
 
     def store_data(self, filename):

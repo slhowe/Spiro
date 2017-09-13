@@ -46,7 +46,7 @@ void loop() {
     Serial.print(",");
     Serial.print(flow);
     Serial.print(",");
-    Serial.print(timestamp);
+  //  Serial.print(timestamp);
     Serial.print("\n");
 
   }
