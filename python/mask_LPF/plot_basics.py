@@ -4,12 +4,13 @@
 import sys
 sys.path.insert(0, '/home/sarah/Documents/Spirometry/python/extensions')
 
+import numpy as np
 import csv
 import matplotlib.pyplot as plt
 from data_struct import DataStore as Data
 from calculus import integral
 
-path = '/home/sarah/Documents/Spirometry/python/'
+path = './'
 files = [
         'data_recording.csv'
          ]
@@ -17,6 +18,12 @@ files = [
 # Create data classes
 reset = Data('reset')
 reset.clear_dataset_registry()
+
+mask_pressure_array = []
+spir_pressure_array = []
+relat_array = []
+
+Fs = 300 #Hz
 
 for i in range(len(files)):
     # Store pressure and flow data
@@ -29,27 +36,30 @@ for i in range(len(files)):
         header = reader.next()
 
         for row in reader:
-            pressure = float(row[0])
-            flow = float(row[1])
+            spir_pressure = float(row[0])
+            mask_pressure = float(row[1])
             time = float(row[2])
 
-            dataset.pressure.append(pressure)
-            dataset.flow.append(flow)
-            dataset.time.append(time)
+            mask_pressure_array.append(mask_pressure)
+            spir_pressure_array.append(spir_pressure)
+            dataset.time.append(time/1000)
+            if(spir_pressure != 0):
+                relat_array.append(mask_pressure/spir_pressure)
+            else:
+                relat_array.append(np.nan)
 
 
 #    plt.plot(dataset.time, dataset.pressure, 'b',
 #             dataset.time, dataset.flow, 'r',
 #             )
-    volume = integral(dataset.flow, 60)
-    plt.plot(dataset.pressure, 'b',
-             dataset.flow, 'r',
-             volume, 'm',
+    plt.plot(dataset.time, spir_pressure_array, 'b',
+             dataset.time, mask_pressure_array, 'g',
+             dataset.time, relat_array, 'r',
              )
 
     plt.grid()
-    plt.legend(["Pressure",
-                "Flow",
-                "volume"
+    plt.legend(["spir_pressure",
+                "mask_pressure",
+                "mask/spir"
                 ])
     plt.show()

@@ -40,24 +40,19 @@ void loop() {
       function_run_time = micros();
       
       // read the input
-      int flow_measurement = analogRead(A2);
-      int pressure_measurement = analogRead(A0);
+      int spir_measurement = analogRead(A2);
+      int mask_measurement = analogRead(A3);
 
       // Convert reading to pressure
-      convert_to_Pa_ASDX(&pressure_measurement, Pmin, Pmax);
-      convert_to_Pa_SSC(&flow_measurement);
-
-      // Convert differential pressure to flow
-      int flow = convert_Pa_to_L_min((float)flow_measurement, sqr_const, lin_const);
+      convert_to_Pa_SSC(&mask_measurement);
+      convert_to_Pa_SSC(&spir_measurement);
 
       // print out the values
-      Serial.print(pressure_measurement);
+      Serial.print(spir_measurement);
       Serial.print(",");
-      //Serial.print(flow);
-      //Serial.print(",");
-      Serial.print(flow_measurement);
-      //Serial.print(",");
-      //Serial.print(function_run_time); // Timestamp
+      Serial.print(mask_measurement);
+      Serial.print(",");
+      Serial.print(function_run_time);
       Serial.print("\n");
     }
     
