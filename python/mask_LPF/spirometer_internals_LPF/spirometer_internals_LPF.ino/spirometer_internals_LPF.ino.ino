@@ -48,9 +48,9 @@ void loop() {
       convert_to_Pa_SSC(&spir_measurement);
 
       // print out the values
-      Serial.print(spir_measurement);
+      Serial.print(-spir_measurement);
       Serial.print(",");
-      Serial.print(mask_measurement);
+      Serial.print(-mask_measurement);
       Serial.print(",");
       Serial.print(function_run_time);
       Serial.print("\n");
@@ -64,7 +64,7 @@ void loop() {
 /* Set baud rate and open communications
  */
 void setup() {
-  // initialize serial communication at 9600 bits per second:
+  // initialize serial communication at 115200 bits per second:
   Serial.begin(115200);
 }
 
