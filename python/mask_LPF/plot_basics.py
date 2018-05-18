@@ -54,7 +54,7 @@ for i in range(len(files)):
 #             )
     plt.plot(dataset.time, spir_pressure_array, 'b',
              dataset.time, mask_pressure_array, 'g',
-             dataset.time, relat_array, 'r',
+             #dataset.time, relat_array, 'r',
              )
 
     plt.grid()
