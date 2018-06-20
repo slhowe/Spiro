@@ -1,0 +1,20 @@
+Trial to look at lung mechanics of spontaneous breathing.
+
+Data found in trial_data folder.
+    - Contains M01 - M10 and F01 - F05 , F09
+    - F09 is naming error
+
+Data sets in each file are:
+    - ***_mouthpiece_resistance
+        > These sets are for low effort breath-hold-and-release test
+        > *** if the subject ID. F = female, M = male
+        > mouthpiece is either mask or mp (snorkel mouthpiece)
+        > resistance is Rx for added resistance and noRx otherwise
+
+    - ***_mouthpiece_peak*
+        > These sets are for peak expiratory effort
+        > *** if the subject ID. F = female, M = male
+        > mouthpiece is either mask or mp (snorkel mouthpiece)
+        > peakRx had added resistance
+
+

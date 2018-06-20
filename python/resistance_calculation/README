@@ -1,0 +1,25 @@
+Resistance Calculations
+What is the resistance of the pneumotach and any extensions?
+
+Standardised requirements for Spirometer are in Miller et al. 2005
+Total resistance is <1.5 cmH2O for Q = 14 L/s
+
+Sarah Howe
+08/12/17
+
+_________________________
+Have data from Spirometer
+Data records:
+    *pressure across pneumotach
+    *flow
+    *pressure relative to atmosphere
+
+Find resistance of pneumotach for expected flow rates of tidal breathing.
+Know pressure and flow -> solve for resistance = P/Q
+
+Find resistance of additions
+Total pressure - pneumotach pressure = extension pressure
+(Extension pressure only includes additions after pneumotach)
+resistance in same way
+
+Total resistance found using total pressure drop

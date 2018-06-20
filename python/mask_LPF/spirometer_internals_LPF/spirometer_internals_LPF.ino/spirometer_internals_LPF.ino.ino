@@ -33,24 +33,45 @@ void loop() {
   static float Pmin = -6205; //Pa
   static float sqr_const = -0.000475; // From calibration
   static float lin_const = 0.427; // From calibration
+  int spir_measurement;
+  int mask_measurement;
+
+  bool peak_flow_test = false;
 
   while(1){
     
     if(current_time >= (function_run_time + FUNCTION_PERIOD_US)){
       function_run_time = micros();
+
+      if(peak_flow_test){
+        // read the input
+        spir_measurement = analogRead(A0); //High pressure sensor
+        mask_measurement = analogRead(A3); //High res sensor
+  
+        // Convert reading to pressure
+        convert_to_Pa_SSC(&mask_measurement);
+        convert_to_Pa_ASDX(&spir_measurement, Pmin, Pmax);
+//        int flow = convert_Pa_to_L_min(mask_measurement, sqr_const, lin_const);
+      }
+      else{
+        // read the input
+        spir_measurement = analogRead(A2); //High res sensor
+        mask_measurement = analogRead(A3); //High res sensor
+  
+        // Convert reading to pressure
+        convert_to_Pa_SSC(&mask_measurement);
+        convert_to_Pa_SSC(&spir_measurement);
+        spir_measurement -= 2;
+        mask_measurement -= 3;
+//        int flow = convert_Pa_to_L_min(mask_measurement, sqr_const, lin_const);
+      }
       
-      // read the input
-      int spir_measurement = analogRead(A2);
-      int mask_measurement = analogRead(A3);
-
-      // Convert reading to pressure
-      convert_to_Pa_SSC(&mask_measurement);
-      convert_to_Pa_SSC(&spir_measurement);
-
       // print out the values
-      Serial.print(-spir_measurement);
-      Serial.print(",");
       Serial.print(-mask_measurement);
+      Serial.print(",");
+      //Serial.print(-flow);
+      //Serial.print(",");
+      Serial.print(-spir_measurement);
       Serial.print(",");
       Serial.print(function_run_time);
       Serial.print("\n");
@@ -167,15 +188,15 @@ static inline int8_t sgn(float val) {
 /* Convert pressure formn differential sensor
  * to flow. Uses emperic equation from calibration.
  */
-int convert_Pa_to_L_min(float value, float sqr_const, float lin_const){
+int convert_Pa_to_L_min(int value, float sqr_const, float lin_const){
   // Using Q = aP^2 + bP
   int8_t sn = sgn(value);
   if (sn == 0) return 0;
   
-  value = abs(value);
+  int value_abs = abs(value);
   
-  float quad = value * value * sqr_const;
-  float lin = value * lin_const;
+  float quad = value_abs * value_abs * sqr_const;
+  float lin = value_abs * lin_const;
   float flow = quad + lin + 0.5; // Round to nearest int
   
   return (int)flow * sn * -1;

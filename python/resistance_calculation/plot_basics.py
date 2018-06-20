@@ -7,9 +7,9 @@ sys.path.insert(0, '/home/sarah/Documents/Spirometry/python/extensions')
 import csv
 import matplotlib.pyplot as plt
 from data_struct import DataStore as Data
-from calculus import integral
 
-path = '/home/sarah/Documents/Spirometry/python/'
+#path = '/home/sarah/Documents/Spirometry/python/'
+path = './'
 files = [
         'data_recording.csv'
          ]
@@ -41,18 +41,12 @@ for i in range(len(files)):
 #    plt.plot(dataset.time, dataset.pressure, 'b',
 #             dataset.time, dataset.flow, 'r',
 #             )
-    volume = integral(dataset.flow, 300)
-    volume2 = integral(dataset.pressure, 300)
-    plt.plot(dataset.time, dataset.pressure, 'b',
-             dataset.time, dataset.flow, 'r',
-             dataset.time, volume, 'm',
-             dataset.time, volume2, 'orange',
+    plt.plot(dataset.pressure, 'b',
+             dataset.flow, 'r',
              )
 
     plt.grid()
     plt.legend(["Pressure",
                 "Flow",
-                "integral of flow",
-                "integral of pressure",
                 ])
     plt.show()
