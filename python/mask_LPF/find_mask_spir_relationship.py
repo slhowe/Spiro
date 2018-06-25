@@ -14,7 +14,8 @@ from numpy.linalg import lstsq
 SENSOR_CUTOFF = 0.29
 
 #filename = './data_recording.csv'
-filename = './breath_example_Rx2.csv'
+#filename = './breath_example_without_Rx2.csv'
+filename = './Pm_vs_Ps_spirometer.csv'
 
 pressure = []
 
@@ -26,8 +27,8 @@ with open(filename, 'rb') as csvfile:
 
     for row in reader:
         # Values read as string. Need converting
-        spir = float(row[0])
-        mask = float(row[1])
+        spir = -float(row[1])
+        mask = -float(row[0])
 
         # Pressures linked in tuples for later sorting
         pressure.append((spir, mask))
@@ -45,6 +46,8 @@ for i in range(len(pressure)):
     mask_pressure.append(pressure[i][1])
 
 # relationship in expiration
+
+# FINDING EXPIRATION RANGE
 # Find first index less than 0
 # find first index less than -0.29
 # relationship for all values in between
@@ -62,7 +65,9 @@ while i < num_datapoints:
             i = num_datapoints
     i+=1
 
+
 # Quadratic relationship?
+# FIT TO ALL OF EXPIRATION RANGE
 one_array = [1]*(end-start)
 spir_array = spir_pressure[start:end]
 mask_array = mask_pressure[start:end]
@@ -79,7 +84,9 @@ curve = [c/1000.0 for c in curve]
 data = [result[0][0]*(c**2) + result[0][1]*c + result[0][2] for c in curve]
 data2 = [-6.4*(c**2) + c for c in curve]
 
+
 #linear relationship
+
 start = -1
 end = -1
 i = 0
