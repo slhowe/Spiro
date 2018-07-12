@@ -38,6 +38,10 @@ with open(filename, 'rb') as csvfile:
 
 datalength = len(flow)
 
+# FLOW IN L/S
+# PRESSURE IN Pa
+# -> resistance in Pa/L/s
+
 #Pneumotach resistance across all data
 R_pneu = [0 for k in range(datalength)]
 for j in range(datalength):
@@ -76,6 +80,7 @@ if(plotting):
             time, R_add_filt, 'k',
             )
     plt.grid()
+    plt.xlabel('Resistance Pa/L/s')
     plt.legend(['pneumotach', 'total', 'added'])
     plt.show()
 

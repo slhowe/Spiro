@@ -198,3 +198,8 @@ plt.grid()
 plt.xlabel('Pressure Pa')
 plt.ylabel('Flow L/min')
 plt.show()
+
+
+res = [pressures[m]/float(flows[m]) for m in range(len(pressures))]
+plt.plot(res)
+plt.show()

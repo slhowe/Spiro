@@ -67,11 +67,11 @@ void loop() {
       }
       
       // print out the values
-      Serial.print(-mask_measurement);
+      Serial.print(mask_measurement);
       Serial.print(",");
       //Serial.print(-flow);
       //Serial.print(",");
-      Serial.print(-spir_measurement);
+      Serial.print(spir_measurement);
       Serial.print(",");
       Serial.print(function_run_time);
       Serial.print("\n");
