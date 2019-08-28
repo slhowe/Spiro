@@ -134,7 +134,7 @@ def hamming(data, fc, fs, bw, plot=False):
     # Normalise bandwidth to range 0<->1
     # Bandwidth used to set filter length
     tw = bw/float(fs)
-    N = int(np.ceil((4/tw)))
+    N = int(np.ceil((3.1/tw)))
 
     # Odd length filter is most widely usable
     # Will set filter length to odd if it is even

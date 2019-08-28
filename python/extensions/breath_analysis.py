@@ -126,13 +126,13 @@ def split_breaths(data, peak_height=0.10, Fs=125, filt=True, plot=False):
         # Filter the shit out of the signal
         data = hamming(data, 3, Fs, 6, plot)
         data = real(data).tolist()
-        for v in range(len(data)):
-            if np.abs(data[v]) < 0.05:
-                data[v] = 0
+        #for v in range(len(data)):
+        #    if np.abs(data[v]) < 0.05:
+        #        data[v] = 0
 
     # Find the crossing points and check they are good
     find_crossings_and_midpoints(data, startpoints, midpoints, endpoints)
-    final_breaths = check_crossings_valid(data, startpoints, midpoints, endpoints, peak_height)
+    final_breaths = check_crossings_valid(data, startpoints, midpoints, endpoints, peak_height, Fs)
 
     if(plot):
         fss = [data[o] for o in final_breaths[0]]

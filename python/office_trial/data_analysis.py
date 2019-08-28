@@ -12,22 +12,38 @@ from calculus import integral
 from breath_analysis import split_breaths
 from numpy import array
 from numpy.linalg import lstsq
+from scipy import stats
 
 path = './trial_data/'
 subject = [
-          'M02',
+         # 'F01',
+         # 'F02',
+         # 'F03',
+         # 'F04',
+         # 'F05',
+         # 'F09',
+         # 'M01',
+         # 'M02',
+         # 'M03',
+         # 'M04',
+         # 'M05',
+         # 'M06',
+         # 'M07',
+         # 'M08',
+         # 'M09',
+          'M10',
           ]
 test_type = [
+        #[
+        #'_mp_peak.csv',
+        #'_mp_peakRx.csv',
+        #'_mp_peak.csv',
+        #'_mp_peakRx.csv',
+        # ],
         [
-        '_mp_peak.csv',
-        '_mp_peakRx.csv',
-        '_mp_noRx2.csv',
-        '_mp_Rx2.csv',
+        '_mp_noRx.csv',
+        '_mp_Rx.csv',
          ],
-#        [
-#        '_mp_noRx.csv',
-#        '_mp_Rx.csv',
-#         ],
 #        [
 #        '_mp_noRx.csv',
 #        '_mp_Rx.csv',
@@ -45,6 +61,7 @@ conversion = [
         #[0.023, [1.1, 0], [2.5, 0.03]],
         ]
 
+sampling_frequency = 300
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,8 +77,8 @@ def extract_data_arrays_from_file(filename, pressure, flow, time):
         header = reader.next()
 
         for row in reader:
-            pressure_point = 1000 * float(row[1])
-            flow_point = 1000 * float(row[0])
+            pressure_point = 1000 * float(row[0])
+            flow_point = 1000 * float(row[1])
             time_point = float(row[2])
 
             pressure.append(pressure_point)
@@ -77,7 +94,13 @@ def extract_data_arrays_from_file(filename, pressure, flow, time):
 # This may need to be re-checked
 # NOTE Only valid up to 250Pa across spirometer
 def convert_spirometer_pressure_to_flow(pressure):
-    flow = [(-0.000475*p**2) + (0.427*p) for p in pressure]
+    flow = [p*0.0092 for p in pressure]
+  #if (value >= 0) //inspiration
+  #  flow = 0.0088*value;
+  #else
+  #  //flow = 0.0075*value;
+  #  flow = 0.0092*value;
+  #return flow;
     return flow
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -98,12 +121,32 @@ def convert_spirometer_pressure_to_mouth_pressure(spir_pressure, coeffs):
     return mouth_pressure
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def root_mean_squared_error(data, fit, peak):
+    mse = 0
+    N = len(data)
+    for m in range(N):
+        mse += (data[m]/peak - fit[m]/peak)**2
+    mse /= N
+    rmse = np.sqrt(mse)
+    return rmse
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
 def calculate_decay_rates(flow, starts, stops):
-    decay = [[] for i in range(len(starts))]
+    PRINTING = False
+    PLOTTING = False
+
+
+    decay = [[np.nan, np.nan] for i in range(len(starts))]
+    grad = [[np.nan, np.nan] for i in range(len(starts))]
+    rvalues = [[np.nan] for i in range(len(starts))]
     decay_start = [0 for i in range(len(starts))]
     decay_end = [0 for i in range(len(starts))]
+    peaks = [0 for i in range(len(starts))]
 
     # Fitting to range Ps = -50 <-> -70 Pa
     # Corresponds to Q = -20 <-> -27 L/min
@@ -113,7 +156,7 @@ def calculate_decay_rates(flow, starts, stops):
         expiration = flow[starts[breath]:stops[breath]]
         expiration_length = len(expiration)
 
-        # Start from and and work way back up curve
+        # Start from end and work way back up curve
         end_index = np.nan
         start_index = np.nan
         i = 0
@@ -122,27 +165,35 @@ def calculate_decay_rates(flow, starts, stops):
             # So the first points in range needed can be found
             index = expiration_length - i - 1
             if np.isnan(end_index):
-                if expiration[index] <= -36:
+                if expiration[index] <= -16:
                     end_index = index
             else:
-                if expiration[index] <= -100:
+                if expiration[index] <= -480:
                     start_index = index
                     i = expiration_length
             i += 1
         # Pick the minimum flow point as start if
         # expiration was too small to get start index
-        if np.isnan(start_index):
-            start_index = expiration.index(min(expiration))
-            print('WARNING: Max flow too small to find start point')
-        # Pick the end point as end of expiration
-        # if the breath was too small to get values
-        if np.isnan(end_index):
-            end_index = len(expiration)
-            print('WARNING: Max flow too small to find end point')
+        if(PRINTING):
+            print(expiration.index(min(expiration)))
+            print(len(expiration))
+
+        start_index = expiration.index(min(expiration)) + (len(expiration) - expiration.index(min(expiration)))/4
+        end_index = len(expiration) - (len(expiration) - expiration.index(min(expiration)))/3
+
+#        if np.isnan(start_index):
+#            start_index = expiration.index(min(expiration)) + (len(expiration) - expiration.index(min(expiration)))/4
+#            print('WARNING: Max flow less than start threshold (480 L/min)\n setting start to 1/3 range after flow minimum')
+#        # Pick the end point as end of expiration
+#        # if the breath was too small to get values
+#        if np.isnan(end_index):
+#            end_index = len(expiration) - (len(expiration) - expiration.index(min(expiration)))/3
+#            print('WARNING: Max flow less than end threshold (16 L/min)\n setting end to 2/3 range after flow minimum')
 
         #halfway_point = (first_zero)/2
-        print('start: {}'.format(start_index))
-        print('end: {}'.format(end_index))
+        if(PRINTING):
+            print('start: {}'.format(start_index))
+            print('end: {}'.format(end_index))
 
         decay_start[breath] = start_index
         decay_end[breath] = end_index
@@ -169,38 +220,85 @@ def calculate_decay_rates(flow, starts, stops):
 
             # Squared Euclidean 2-norm for each col in (b - a*x)
             residual = result[1]
-            print('       residual on line fit is {}'.format(residual[0]))
+            if(PRINTING):
+                print('       residual on line fit is {}'.format(residual[0]/len(curve)))
 
             # Parameters - offset and decay constant
             constants = result[0]
             constants[0] = np.exp(constants[0])
-            print('       offset is {}, decay is {}'.format(constants[0], constants[1]))
+            if(PRINTING):
+                print('       offset is {}, decay is {}'.format(constants[0], constants[1]))
 
             decay[breath] = constants
 
+            # LINEAR FIT TO FLOW VS VOLUME :)
+            volume = integral(expiration, sampling_frequency)
+            volume_curve = volume[start_index:end_index]
+
+            gradient, intercept, r_value, p_value, std_err = stats.linregress(volume_curve, expiration[start_index:end_index])
+
+
+            #line2 = [gradient*s + intercept for s in steps]
+            if(PRINTING):
+                print('vvvvvvvvvvvv')
+                print('       gradient is {}'.format(gradient))
+                print('       offset is {}'.format(intercept))
+                print('       R2 is {}'.format(r_value))
+                print('       pValue is {}'.format(p_value))
+
+                if abs(r_value) > 0.97:
+                    print('***\nNICE AND LINEAR <3\n***')
+
+            grad[breath] = [gradient, intercept]
+            rvalues[breath] = [r_value]
+
+
             if(1):
+                # find peak flow and peak flow index
+                peak = min(expiration)
+                peak_index = expiration.index(peak) #index relative end insp (flow middle)
+                peaks[breath] = peak_index
+                if(PRINTING):
+                    print("peak:{}".format(peak))
+                    print("peak_index:{}".format(peak_index))
+
+
                 # Remake curve from best fit
                 # Length of curve is from decay_start to flow_stop point
                 Fs = 300.0
-                times = [x/Fs for x in range(stops[breath]-(starts[breath]+decay_start[breath]))]
+                times = [x/Fs for x in range(peak_index-start_index, end_index-start_index)]
                 A = decay[breath][0][0]
                 k = decay[breath][1][0]
                 dec_curve = [A*np.exp(t*k) for t in times]
                 #dec_curve = [-c for c in dec_curve]
 
-                #times = [flow_middles[i]+peaks[i]+t for t in times]
-                plt.plot(range(decay_start[breath],(stops[breath] - starts[breath])), dec_curve, '--k', linewidth=2)
+                if(peak != 0):
+                    rmse = root_mean_squared_error(expiration[peak_index:end_index], dec_curve, peak)
+                    if(PRINTING):
+                        print("rmse:{}".format(rmse))
 
-                plt.plot([-e for e in expiration])
-                plt.plot(range(start_index, end_index), curve)
-                plt.show()
+                if(PLOTTING):
+                    #times = [flow_middles[i]+peaks[i]+t for t in times]
+                    plt.plot(range(peak_index, end_index), dec_curve, '--k', linewidth=2)
+                    plt.plot([-e for e in expiration])
+                    plt.plot(range(start_index, end_index), curve)
+                    plt.show()
+
+                    lin_fit = [grad[breath][0]*v + grad[breath][1] for v in volume_curve]
+                    plt.plot(volume, expiration)
+                    plt.plot(volume_curve, expiration[start_index:end_index], 'orange')
+                    plt.plot(volume_curve, lin_fit, 'r')
+
+                    plt.xlabel('volume')
+                    plt.ylabel('flow')
+                    plt.show()
 
         else:
             print('Less than 3 points to find decay. Can\'t do it')
             decay[breath] = np.nan
 
 
-    return([decay, decay_start, decay_end])
+    return([grad, rvalues])
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -210,15 +308,18 @@ external_resistance = 0.3 # Dummy until value determined
 
 
 for j in range(len(subject)):
+    print('\nNEW subject\n--------\n')
 
     for i in range(len(test_type)):
         decays = []
 
         for k in range(2):
 
-            print('NEW FILE')
+            print('\nNEW FILE\n--------\n')
 
             filename = path + subject[j] + '/normalised_' + subject[j] + test_type[i][k]
+            print(filename)
+            print('\n')
 
             try:
                 # Extract data to empty arrays.
@@ -230,11 +331,11 @@ for j in range(len(subject)):
 
                 # Flow and mouth pressure both calculated from spirometer pressure
                 flow = convert_spirometer_pressure_to_flow(pressure_highRes)
-                mouth_pressure = convert_spirometer_pressure_to_mouth_pressure(pressure_highRes, conversion[k])
+                #mouth_pressure = convert_spirometer_pressure_to_mouth_pressure(pressure_highRes, conversion[k])
 
-                plt.plot(pressure_highRes)
-                plt.plot(pressure_lowRes)
-                plt.plot(flow)
+                plt.plot(pressure_highRes, 'b')
+                plt.plot(pressure_lowRes, 'g')
+                plt.plot(flow, 'r')
                 plt.show()
 
 
@@ -247,9 +348,34 @@ for j in range(len(subject)):
                 # Some will be bull, because not held breaths
                 results = calculate_decay_rates(flow, flow_middles, flow_stops)
                 decay_rates = results[0]
-                decay_starts = results[1]
-                decay_ends = results[2]
-
+                decay_rvalue = results[1]
 
             except IOError:
                 print("File {} does not exist".format(filename))
+
+
+            SF = 0.97 #sensitivity factor
+
+            #Basic table print of all results (SF highlighted with *)
+            print('\n')
+            print('____ results for ____')
+            print(filename)
+            print('________')
+            for n in range(len(decay_rates)):
+                if(abs(decay_rvalue[n][0]) > SF):
+                    print(decay_rates[n][0], decay_rates[n][1], decay_rvalue[n], '*')
+                else:
+                    print(decay_rates[n][0], decay_rates[n][1], decay_rvalue[n])
+
+            used_grad = []
+            count = 0
+            for n in range(len(decay_rates)):
+                if(abs(decay_rvalue[n][0]) > SF):
+                    count += 1
+                    used_grad.append(decay_rates[n][0])
+            if(count > 0):
+                mean_grad = sum(used_grad)/count
+                print(' mean = {}'.format(mean_grad))
+                SD = np.std(used_grad)
+                print(' standard dev = {}'.format(SD))
+

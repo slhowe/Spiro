@@ -40,7 +40,7 @@ def write_to_csv(csvwriter, data_array):
             clean_item = str(item).split(',')
 
             mouth_pressure = float(clean_item[0])/1.0
-            flow = float(clean_item[1])/60.0
+            flow = float(clean_item[1])
             pneu_pressure = float(clean_item[2])/1.0
             time = float(clean_item[3])/1000
 

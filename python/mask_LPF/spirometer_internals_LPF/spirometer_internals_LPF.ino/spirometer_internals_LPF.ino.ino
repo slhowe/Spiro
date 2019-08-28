@@ -12,6 +12,7 @@ void convert_to_Pa_RBIP(int* value, unsigned long Pa_per_bit);
 void convert_to_Pa_SSC(int* value);
 static inline int8_t sgn(float val);
 int convert_Pa_to_L_min(float value, float sqr_const, float lin_const);
+float convert_Pa_to_L_s(float value);
 /* Timer runs in micros
  * This program will run for ~70 mins before overflow occurs
  */
@@ -31,10 +32,11 @@ void loop() {
   //static float Pa_per_bit = abs_pressure_conversion();
   static float Pmax = 6205; //Pa
   static float Pmin = -6205; //Pa
-  static float sqr_const = -0.000475; // From calibration
-  static float lin_const = 0.427; // From calibration
-  int spir_measurement;
-  int mask_measurement;
+  static float sqr_const = -0.00047541; // From calibration
+  static float lin_const = 0.4269203; // From calibration
+  int high_pressure_measurement;
+  int low_pressure_measurement;
+  float flow;
 
   bool peak_flow_test = false;
 
@@ -45,33 +47,40 @@ void loop() {
 
       if(peak_flow_test){
         // read the input
-        spir_measurement = analogRead(A0); //High pressure sensor
-        mask_measurement = analogRead(A3); //High res sensor
+        high_pressure_measurement = analogRead(A0); //High pressure sensor
+        low_pressure_measurement = analogRead(A2); //High res sensor
   
         // Convert reading to pressure
-        convert_to_Pa_SSC(&mask_measurement);
-        convert_to_Pa_ASDX(&spir_measurement, Pmin, Pmax);
-//        int flow = convert_Pa_to_L_min(mask_measurement, sqr_const, lin_const);
+        convert_to_Pa_SSC(&low_pressure_measurement);
+        convert_to_Pa_ASDX(&high_pressure_measurement, Pmin, Pmax);
       }
       else{
         // read the input
-        spir_measurement = analogRead(A2); //High res sensor
-        mask_measurement = analogRead(A3); //High res sensor
+        high_pressure_measurement = analogRead(A3); //High res sensor
+        low_pressure_measurement = analogRead(A2); //High res sensor
+
+        low_pressure_measurement -= 2;
+        high_pressure_measurement -= 6;
   
         // Convert reading to pressure
-        convert_to_Pa_SSC(&mask_measurement);
-        convert_to_Pa_SSC(&spir_measurement);
-        spir_measurement -= 2;
-        mask_measurement -= 3;
-//        int flow = convert_Pa_to_L_min(mask_measurement, sqr_const, lin_const);
+        convert_to_Pa_SSC(&low_pressure_measurement);
+        convert_to_Pa_SSC(&high_pressure_measurement);
       }
+        
+      /*
+       * NOTE
+       * Expiration is negative flow
+       * Check connection is correct way around!
+       */
+      low_pressure_measurement *= -1;
+      flow = convert_Pa_to_L_s(low_pressure_measurement);
       
       // print out the values
-      Serial.print(mask_measurement);
+      Serial.print(low_pressure_measurement); //High res sensor
       Serial.print(",");
-      //Serial.print(-flow);
-      //Serial.print(",");
-      Serial.print(spir_measurement);
+      Serial.print(flow);
+      Serial.print(",");
+      Serial.print(high_pressure_measurement);
       Serial.print(",");
       Serial.print(function_run_time);
       Serial.print("\n");
@@ -185,20 +194,32 @@ static inline int8_t sgn(float val) {
  return 1;
 }
 
+float convert_Pa_to_L_s(int value){
+  float flow = 0;
+  if (value >= 0) //inspiration
+    //flow = 0.0071*value;i
+    //adjust 50% for error in venturi test (Q^2)
+    flow = 0.0088*value;
+  else
+    //flow = 0.0075*value;
+    //adjust 50% for error in venturi test (Q^2)
+    flow = 0.0092*value;
+  return flow;
+}
+
 /* Convert pressure formn differential sensor
  * to flow. Uses emperic equation from calibration.
  */
 int convert_Pa_to_L_min(int value, float sqr_const, float lin_const){
-  // Using Q = aP^2 + bP
   int8_t sn = sgn(value);
   if (sn == 0) return 0;
-  
-  int value_abs = abs(value);
-  
+
+  // old method
+  float value_abs = abs(value);
   float quad = value_abs * value_abs * sqr_const;
   float lin = value_abs * lin_const;
-  float flow = quad + lin + 0.5; // Round to nearest int
-  
-  return (int)flow * sn * -1;
-}
+  float flow = quad + lin; // Round to nearest int
 
+  
+  return flow;
+}

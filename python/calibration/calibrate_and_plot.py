@@ -199,7 +199,23 @@ plt.xlabel('Pressure Pa')
 plt.ylabel('Flow L/min')
 plt.show()
 
+data = []
+pressure = []
+flow = []
+for m in range(len(pressures)):
+    # Pressures linked in tuples for later sorting
+    data.append((pressures[m], flows[m]))
+# Sorted in ascending order by mask pressure
+# Because mask pressure will hit pressure cutoff first
+data.sort(key=lambda tup: tup[1])
+for i in range(len(data)):
+    pressure.append(data[i][0])
+    flow.append(data[i][1])
 
-res = [pressures[m]/float(flows[m]) for m in range(len(pressures))]
+plt.plot(pressure, flow)
+plt.show()
+
+res = [pressure[m]/float(flow[m]) for m in range(len(pressures))]
+plt.plot(flow, 'rx')
 plt.plot(res)
 plt.show()

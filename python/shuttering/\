@@ -1,0 +1,295 @@
+#!/bin/bash
+
+# Import my extensions
+import sys
+sys.path.insert(0, '/home/sarah/Documents/Spirometry/python/extensions')
+
+import csv
+import matplotlib.pyplot as plt
+from calculus import integral
+from breath_analysis import split_breaths
+from scipy import stats
+import numpy as np
+from filters import hamming
+from numpy.linalg import lstsq
+from numpy import nan
+from math import sin, cos, pi, exp, log
+
+path = './'
+files = [
+        'human.csv',
+        'lungpump_1.csv',
+         ]
+
+
+def quick_breath_split(pressure, cutoff, RISING_EDGE=False, timeout=0):
+    starts = []
+    for index in range(len(pressure)-1):
+        if RISING_EDGE:
+            if (pressure[index] < cutoff and pressure[index+1] >= cutoff):
+                if (len(starts) != 0 and starts[-1] > index-timeout):
+                    pass
+                else:
+                    starts.append(index)
+        else:
+            if (pressure[index] > cutoff and pressure[index+1] <= cutoff):
+                if (len(starts) != 0 and starts[-1] > index-timeout):
+                    pass
+                else:
+                    starts.append(index)
+    return(starts)
+
+pressure_abs= []
+time = []
+gradients = []
+decays = []
+pressure_diff = []
+
+for i in range(len(files)):
+    flow = []
+    # Create data classes
+    #####################
+    # GET DATA FROM FILE#
+    #####################
+    # Store pressure and flow data
+    filename = path + files[i]
+    print(' ')
+    print(filename)
+    with open(filename, 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter = ',')
+
+        # skip header line
+        header = reader.next()
+
+        for row in reader:
+            dp_pressure_diff = float(row[0]) # High res, differential pressure (for solving flow)
+            #dp_flow = float(row[1])
+            dp_pressure_abs= -float(row[2]) # low res (abs pressure measured)
+            dp_time = float(row[3]) # in ms
+
+            pressure_diff.append(dp_pressure_diff)
+            pressure_abs.append(dp_pressure_abs)
+            time.append(dp_time/float(1000))
+
+    # Filter pressure
+    # Filter high resolution pressure data
+    fc = 100#filter cutoff
+    bw = 30#filter bandwidth (taps?)
+    pressure = hamming(pressure_diff, fc, 300, bw, plot=False)
+    pressure = np.real(pressure).tolist()
+
+
+    # Flow calculation incorrect on arduino end
+    # Fixed now but sets 1-4 are incorrect so
+    # calculating new flow here instead :)
+    for p in pressure:
+        if p > 0:
+            flow.append(0.0071*p)
+        else:
+            flow.append(0.0076*p)
+
+    volume = integral(flow, 300)
+
+    #######################
+    # Split breaths apart #
+    #######################
+    flow_splits = quick_breath_split(pressure_abs, 5500, timeout=600, RISING_EDGE=False)
+    flow_splits.append(len(pressure_abs)-1)
+
+    plt.rc('legend',**{'fontsize':12})
+    f, (ax1, ax2, ax3, ax4) = plt.subplots(4, sharex=True)
+
+    ax1.plot(pressure_abs)
+    ax1.plot(flow_splits, [pressure_abs[m] for m in flow_splits], 'or')
+    ax1.legend(['Abs pressure'])
+
+    ax2.plot(pressure_diff)
+    ax2.plot(flow_splits, [pressure_diff[m] for m in flow_splits], 'or')
+    ax2.legend(['Diff pressure'])
+
+    ax3.plot(volume)
+    ax3.plot(flow_splits, [volume[m] for m in flow_splits], 'or')
+    ax3.legend(['Volume'])
+
+    ax4.plot(flow)
+    ax4.plot(flow_splits, [flow[m] for m in flow_splits], 'or')
+    ax4.legend(['Flow'])
+    plt.show()
+
+    print(len(flow))
+    plt.plot(flow, linewidth=2)
+    plt.ylabel('Flow (L/s)')
+    plt.show()
+
+    ############################
+    # Correct for volume drift #
+    ############################
+    # There is none in this data set :)
+
+    for breath in range(len(flow_splits)-1):
+        print('\nbreath: {}'.format(breath))
+    #######################
+    # Split breaths apart #
+    #######################
+        flw = flow[flow_splits[breath]:flow_splits[breath+1]]
+        pres_abs = pressure_abs[flow_splits[breath]:flow_splits[breath+1]]
+        pres_diff = pressure_diff[flow_splits[breath]:flow_splits[breath+1]]
+        pres_filt = pressure[flow_splits[breath]:flow_splits[breath+1]]
+        vol = integral(flw, 300)
+        t = time[flow_splits[breath]:flow_splits[breath+1]]
+
+
+        #####################
+        # Down-stroke phase #
+        #####################
+        new_start = 0
+        new_end = quick_breath_split(pres_abs[new_start+50:], 100, RISING_EDGE=False)[0] +50
+        print('new_end')
+        print(new_end)
+        if (new_end):
+
+            new_start = new_end/5
+            new_end = new_end - new_start
+
+            if(0):
+                plt.plot(flw)
+                plt.plot(new_start, flw[new_start], 'oy')
+                plt.plot(new_end, flw[new_end], 'oy')
+                plt.show()
+
+            # Calc exp decay of flow
+            ln_flw = [np.log(abs(f)) for f in flw[new_start:new_end]]
+            times = t[new_start:new_end]
+            ones = [1]*len(times)
+            dependent = np.array([ln_flw])
+            independent = np.array([ones, times])
+            try:
+                res = lstsq(independent.T, dependent.T)
+                decay = (res[0][1][0])
+                offset = np.exp(res[0][0][0])
+            except(ValueError):
+                print('ValueError: Data has nan?')
+                decay = nan
+                offset = nan
+
+            print('     Decay rate stuff')
+            print(decay, offset,)
+
+#            # Calc gradient directly
+#            # Find the closest volume index to the target one input
+#            def vol_search(vol, value):
+#                for v in range(len(vol)-1):
+#                    if vol[v] > value and vol[v+1]<= value:
+#                        return v
+#                print('No volume index found, returning last volume')
+#                return len(vol)-1
+#
+#            # Find volume range for each decay
+#            # First one
+#            v_len = vol[new_end] - vol[new_start]
+#            f_end = vol_search(vol, vol[new_end] - v_len/6)
+#            f_start = vol_search(vol, vol[new_start] + v_len/3)
+
+            f_start = new_start
+            f_end = new_end
+
+            flow_curve= flw[f_start:f_end]
+            volume_curve= vol[f_start:f_end]
+            gradient_passive, intercept, r_value, p_value, std_err = stats.linregress(volume_curve, flow_curve)
+
+
+            # remake curves
+            flow_curve_passive = [offset*exp(decay*y) for y in t[new_start:new_end]]
+
+            volume_curve_passive = vol[new_start:new_end]
+            line_passive = [gradient_passive*V + intercept for V in volume_curve_passive]
+
+            if np.isnan(decay):
+                gradient_passive = nan
+                intercept = nan
+                r_value = nan
+
+            if (decay > 0 or gradient_passive > 0):
+                gradient_passive = nan
+                decay = nan
+
+            print('     Passive (Q vs V), gradient is E/R estimate')
+            print(gradient_passive, intercept, r_value)
+
+
+            gradients.append([gradient_passive])
+            decays.append([decay])
+
+            ###########################
+            # Plots and print results #
+            ###########################
+
+            if(0):
+                plt.plot(t, flw, 'r',)
+                plt.plot(t, pres_abs, 'c',)
+                plt.plot(t, pres_diff, 'g',)
+                plt.plot(t, pres_filt, 'k', label='_nolegend_')
+                plt.plot(t, vol, 'm',label='_nolegend_',)
+                plt.plot(t[new_start], pres_abs[new_start], 'ro',)
+                plt.plot(t[new_end], pres_abs[new_end], 'ro',label='_nolegend_',)
+                plt.plot(t[f_start], pres_abs[f_start], 'mo',)
+                plt.plot(t[f_end], pres_abs[f_end], 'mo',label='_nolegend_',)
+
+                plt.grid()
+                plt.legend([
+                            "Flow",
+                            "pressure abs",
+                            "pressure diff",
+                            'downstroke start',
+                            'downstroke range used',
+                            ])
+                plt.show()
+
+
+
+                plt.plot(t, flw, 'b',)
+                plt.plot(t[new_start:new_end], flow_curve_passive, color='pink',linewidth=2)
+                plt.grid()
+                plt.show()
+
+                print("This is the plot of the High pressure measurement (low res one) vs flow")
+                plt.plot(vol, flw,
+                        vol[new_start], flw[new_start], 'mo',
+                        vol[new_end], flw[new_end], 'mo',
+                        vol[f_start], flw[f_start], 'yo',
+                        vol[f_end], flw[f_end], 'yo',
+                        volume_curve_passive, line_passive, 'r',
+                        )
+
+                plt.grid()
+                plt.ylabel("flow")
+                plt.xlabel("volume (lung estimate when occluded)")
+                plt.show()
+
+                Pd = [100*vol[y] + (530)*flw[y] for y in range(len(flw))]
+                plt.plot(Pd, 'k', linewidth=2)
+                plt.plot(vol, 'g', linewidth=2)
+                plt.plot(flw, 'b', linewidth=2)
+                plt.plot(pres_abs, 'r')
+                plt.show()
+
+        else:
+            print("no occluded section end found")
+            plt.plot(pres_abs)
+            plt.show()
+            gradients.append([np.nan])
+
+
+    print('\n Gradients')
+    for g in gradients:
+        print(g)
+    print('\n Mean gradient [passive, driven]')
+    print(np.nanmean(gradients, axis=0))
+    print(np.nanstd(gradients, axis=0))
+
+    print('\n decays')
+    for g in decays:
+        print(g)
+    print('\n Mean  [passive, driven]')
+    print(np.nanmean(decays, axis=0))
+    print(np.nanstd(decays, axis=0))

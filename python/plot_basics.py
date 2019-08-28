@@ -31,7 +31,7 @@ for i in range(len(files)):
         for row in reader:
             pressure = float(row[0])
             flow = float(row[1])
-            time = float(row[2])
+            time = float(row[3])
 
             dataset.pressure.append(pressure)
             dataset.flow.append(flow)
