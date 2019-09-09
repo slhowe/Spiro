@@ -31,7 +31,7 @@ import pandas as pd
 #shutter = 4
 #pressure = 5
 
-DATASET = 0
+DATASET = 4
 
 if(DATASET == 0):
     # Banded data set, has FEV in other sets too
@@ -137,6 +137,15 @@ def find_first_index_above_value(data, startSearchIndex, target):
     return len(data)
 
 
+def find_first_index_below_value(data, startSearchIndex, target):
+    # first index grater than target in range data[startIndex:]
+    for searchIndex in range(startSearchIndex, len(data)):
+        if(data[searchIndex] < target):
+            return searchIndex
+    return len(data)
+
+
+
 def quick_breath_split(breath, cutoff, RISINGEDGE=True):
     # Finds an edge where the edge has gone above/below value cutoff
     # Rising/falling edge selection chosen as input. Default to rising edge
@@ -172,12 +181,12 @@ def time_dependent_exp_fit(flow, time):
 
 numFiles= len(files)
 
-colours = ['blue', 'green', 'red', 'black', 'magenta', 'pink', 'cyan', 'brown', 'orange', 'yellow']
+colours = ['blue', 'green', 'red', 'black', 'purple', 'cyan', 'magenta', 'brown', 'orange', 'pink', 'yellow']
 colourIndex = -1
 
 # For results
 gradients = [[] for m in range(numFiles)]
-gradientsShort = [[] for m in range(numFiles)]
+gradientsEnd = [[] for m in range(numFiles)]
 decays = [[] for m in range(numFiles)]
 prev_max_pres = [[] for m in range(numFiles)] # store maximum pressure in shuttered breaths
 shutterVol = [[] for m in range(numFiles)] # store maximum pressure in shuttered breaths
@@ -188,19 +197,14 @@ Rguess = [[] for m in range(numFiles)] # store maximum pressure in shuttered bre
 #=============================================================
 #for plotting
 STACK = 0
-FULLSET = 1
-SHUTTERSET = 0
+FULLSET = 0
+STACKSHUTTER = 1
 STACKPRESSURE = 1
 
 if(STACK):
     # plot stacks of flow up to and including shutter
     plt.rc('legend',**{'fontsize':12})
     a, (ax1) = plt.subplots(1, sharex=False)
-
-if(SHUTTERSET):
-    # plot full dataset at start of program
-    plt.rc('legend',**{'fontsize':12})
-    k, (kx1, kx2) = plt.subplots(2, sharex=False)
 
 if(STACKPRESSURE):
     # plot flow separated into components
@@ -209,8 +213,18 @@ if(STACKPRESSURE):
     u, (uax1) = plt.subplots(1)
     #h, (hax1) = plt.subplots(1)
 
-#=============================================================
+if(STACKSHUTTER):
+    allShutterVol= []
+    allShutterPressure = []
+    allAveragePressure = []
+    allShutterEdrs = []
+    plt.rc('legend',**{'fontsize':12})
+    q, (qx1, qx2) = plt.subplots(2, sharex=False)
+    w, (wx1) = plt.subplots(1)
 
+
+
+#=============================================================
 
 for i in range(numFiles):
     colourIndex += 1
@@ -365,11 +379,6 @@ for i in range(numFiles):
                 averageFlow[index] += flw[index]
             numberAveraged += 1
 
-            if(SHUTTERSET):
-                newt = [tim - t[0] for tim in t]
-                #ax1.plot(vol, flw, 'k')
-                #ax2.plot(newt, flw, 'k')
-
             if(STACK):
                 ax1.plot(flw, color=colours[colourIndex])
 
@@ -388,8 +397,10 @@ for i in range(numFiles):
         # 5) Success or cry!                                      #
         ###########################################################
         elif ANALYSING:
-            # Step 1:
-            averageFlow = [q/float(numberAveraged) for q in averageFlow]
+            averageFlowMessy = [q/float(numberAveraged) for q in averageFlow]
+            averageFlow = [0]*len(averageFlowMessy)
+            #for index in range(len(averageFlow-3)):
+                #averageFlow[index] =
             averageVol = integral(averageFlow, FS)
             allAverageVol[i].append(averageVol[-1])
 
@@ -406,12 +417,41 @@ for i in range(numFiles):
                 plt.rc('legend',**{'fontsize':12})
                 a, (ax1) = plt.subplots(1, sharex=False)
 
+            if(STACKSHUTTER):
+
+                qx1.plot([vol[-1]-v for v in vol], color=colours[colourIndex])
+
+                if(i==1 or i==2):
+                    qx1.plot(averageFlow, color=colours[colourIndex])
+                    qx1.plot([v-averageVol[-1] for v in averageVol], color=colours[colourIndex])
+
+                # pressure aligned to same point at start so compare trends
+                P0 = find_first_index_above_value(pres, 0, 10)
+                qx2.plot(pres[P0:], color=colours[colourIndex])
+                qx2.plot([200*q for q in averageFlow[P0:]], color=colours[colourIndex])
+
+                if(max(pres[P0:])>200):
+                    allShutterPressure.append(pres[P0:])
+                    allShutterVol.append([v-averageVol[-1] for v in averageVol[P0:]])
+
+                Edrs = []
+                for index in range(len(vol[P0:])):
+                    if((vol[-1]-vol[P0+index]) > 0):
+                        Edrs.append(pres[P0+index]/(vol[-1]-vol[P0+index]))
+                    else:
+                        Edrs.append(1e-6)
+                if(max(Edrs)<1500):
+                    allShutterEdrs.append(Edrs)
+                    #wx1.plot(Edrs, color=colours[colourIndex])
+                #wx1.plot(len(Edrs), Edrs[-1], 'o', color=colours[colourIndex])
+
             ########################
             # Estimate flow due to shutter
             AminusBTrue = [flw[k]-averageFlow[k] for k in range(min(len(flw),len(averageFlow)))]
-            AminusB = [q - AminusBTrue[shutterStartPoint] for q in AminusBTrue]
+            #AminusB = [q - AminusBTrue[shutterStartPoint] for q in AminusBTrue]
+            AminusB = [q for q in AminusBTrue]
 
-            fc = 50#filter cutoff
+            fc = 30#filter cutoff
             bw = 10#filter bandwidth (taps?)
             AminusBFilt = hamming(AminusBTrue, fc, 300, bw, plot=False)
             AminusBFilt = np.real(AminusBFilt).tolist()
@@ -421,7 +461,8 @@ for i in range(numFiles):
 
             ########################
             # find max shutter flow, and the end point in volume
-            trueMaxFlowIndex = AminusBFilt.index(max(AminusBFilt[min(shutterStartPoint,len(AminusBFilt)-2):min(shutterStartPoint+100,len(AminusBFilt)-1)]))
+            trueMaxFlowIndex = AminusB.index(max(AminusB[min(shutterStartPoint,len(AminusB)-2):min(shutterStartPoint+100,len(AminusB)-1)]))
+            maxFiltFlowIndex = AminusBFilt.index(max(AminusBFilt[min(shutterStartPoint,len(AminusBFilt)-2):min(shutterStartPoint+100,len(AminusBFilt)-1)]))
             maxFlowIndex = trueMaxFlowIndex + 1
 
 
@@ -450,14 +491,14 @@ for i in range(numFiles):
 
             #######################
             # find end as function of (Q increase, V stagnation)
-            flowInflection = len(AminusBVol)-1
+             #flowInflection = len(AminusBVol)-1
             # Has the flow increased again in the future?
             # If so, inflection in flow (ideal: it would always decrease)
-#            searchRange = 4
-#            for index in range(maxFlowIndex, len(AminusBVolFilt)-searchRange):
-#                if (AminusBFilt[index+searchRange] > AminusBFilt[index]):
-#                    flowInflection = index
-#                    break
+            searchRange = 3
+            for index in range(maxFiltFlowIndex, len(AminusBVolFilt)-searchRange):
+                if (AminusBFilt[index+searchRange] > AminusBFilt[index]):
+                    flowInflection = index
+                    break
 
             searchRange = 8
             volumeStagnation = len(AminusBVol)-1
@@ -470,7 +511,7 @@ for i in range(numFiles):
                     break
 
             endFlowIndex = min(flowInflection, volumeStagnation, thirtyMlAfterMax)
-
+            expEnd = find_first_index_below_value(AminusB, endFlowIndex, 0.01)-1
             print(maxFlowIndex)
             print(endFlowIndex)
             print(shutterStartPoint)
@@ -500,13 +541,27 @@ for i in range(numFiles):
                 volume_curve = AminusBVol[maxFlowIndex:endFlowIndex]
                 flow_curve = AminusB[maxFlowIndex:endFlowIndex]
                 gradient_passive, intercept, r_value, p_value, std_err = stats.linregress(volume_curve, flow_curve)
-
                 print('QV gradient full range: {}'.format(gradient_passive))
                 print('r value full range: {}'.format(r_value))
 
                 gradients[i].append(gradient_passive)
                 line = [intercept + gradient_passive*m for m in [AminusBVol[endFlowIndex], AminusBVol[maxFlowIndex]]]
                 lineFull = [intercept + gradient_passive*m for m in [min(AminusBVol), max(AminusBVol)]]
+
+
+                volume_curve = AminusBVol[endFlowIndex:expEnd]
+                flow_curve = AminusB[endFlowIndex:expEnd]
+                if(len(volume_curve) > 3):
+                    gradient_passive, intercept, r_value, p_value, std_err = stats.linregress(volume_curve, flow_curve)
+                else:
+                    gradient_passive = np.nan
+
+                gradientsEnd[i].append(gradient_passive)
+                lineEnd = [intercept + gradient_passive*m for m in [AminusBVol[expEnd], AminusBVol[maxFlowIndex]]]
+                lineFullEnd = [intercept + gradient_passive*m for m in [min(AminusBVol), max(AminusBVol)]]
+                print('QV gradient End: {}'.format(gradient_passive))
+                print('r value End: {}'.format(r_value))
+
 
                 #####################
                 # fit to first 30ml identified linear length
@@ -516,10 +571,6 @@ for i in range(numFiles):
 
                 print('QV gradient 30ml: {}'.format(gradient_passive))
                 print('r value 30ml: {}'.format(r_value))
-
-                gradientsShort[i].append(gradient_passive)
-                lineShort = [intercept + gradient_passive*m for m in [AminusBVol[thirtyMlAfterMax], AminusBVol[maxFlowIndex]]]
-                lineFullShort = [intercept + gradient_passive*m for m in [min(AminusBVol), max(AminusBVol)]]
 
 
                 ########################
@@ -604,6 +655,7 @@ for i in range(numFiles):
                     uax1.plot(AminusBVolFilt, AminusBFilt, '.-', linewidth = 3)
                     uax1.plot([min(AminusBVol), max(AminusBVol)], lineFull, color='pink', linewidth=2)
                     uax1.plot([AminusBVol[endFlowIndex], AminusBVol[maxFlowIndex]], line, color='purple', linewidth=2)
+                    uax1.plot([AminusBVol[expEnd], AminusBVol[maxFlowIndex]], lineEnd, color='purple', linewidth=2)
                     uax1.plot(AminusBVol[maxFlowIndex], AminusB[maxFlowIndex], 'o', color='yellow')
                     uax1.plot(AminusBVol[endFlowIndex], AminusB[endFlowIndex], 'o', color='yellow')
                     uax1.plot(AminusBVol[trueMaxFlowIndex], AminusB[trueMaxFlowIndex], 'o', color='magenta')
@@ -635,41 +687,36 @@ for i in range(numFiles):
             #print('shutter-peaky:= {}'.format((shutterVol[-1])-(peakyVol2[-1] - peakyVol[-1])))
 
 
-            if(SHUTTERSET):
-                # Plot flow, volume, points of interest...
-                ax1.set_ylabel('Flow', fontsize=30)
-                ax1.set_xlabel('volume', fontsize=30)
-                ax1.plot(AminusBVol, AminusB, 'b')
-                #ax1.plot([AminusBVol[shutterStartPoint+decayLen], AminusBVol[shutterStartPoint]], line, 'g')
-                ax1.plot(AminusBVol[shutterStartPoint], AminusB[shutterStartPoint], 'ro')
-                #ax1.plot(AminusBVol[shutterStartPoint+decayLen], AminusB[shutterStartPoint+decayLen], 'mo')
-                ax1.legend(['Shuttered data (Measured-average)',
-                            'Linear fit to shuttered region'])
-
-                newt = [tim - t[0] for tim in t]
-                ax2.plot(newt, flw, 'b')
-                ax2.plot(newt, averageFlow[:len(newt)], 'g')
-                ax2.plot(newt[:len(AminusB)], AminusB, color='red')
-                #ax2.plot(newt[shutterStartPoint:shutterStartPoint+decayLen], flwPulseCurve, color='purple')
-                ax2.plot(newt[shutterStartPoint], AminusB[shutterStartPoint], 'or')
-                #ax2.plot(newt[shutterStartPoint+decayLen], AminusB[shutterStartPoint+decayLen], 'mo')
-                ax2.set_ylabel('Flow', fontsize=30)
-                ax2.set_xlabel('Time', fontsize=30)
-                ax2.legend(['Measured flow',
-                            'Flow due to body',
-                            'Flow due to shutter',
-                            'Decay fits'
-                            ])
-                ax1.grid()
-                ax2.grid()
-                plt.show()
-
             averageFlow = [0]*len(averageFlow)
             numberAveraged = 0
             ANALYSING = False
-            if(SHUTTERSET):
-                plt.rc('legend',**{'fontsize':12})
-                f, (ax1, ax2) = plt.subplots(2, sharex=False)
+
+    if(STACKSHUTTER):
+
+        averagePressure = [0]*(min([len(item) for item in allShutterPressure])-1)
+        for e in range(len(averagePressure)):
+            for f in range(len(allShutterPressure)):
+                averagePressure[e] += allShutterPressure[f][e]
+        averagePressure = [q/len(allShutterPressure) for q in averagePressure]
+
+        qx2.plot(averagePressure, color=colours[colourIndex+4], linewidth=5)
+
+        averageEdrs = [0]*(min([len(item) for item in allShutterEdrs])-1)
+        for e in range(len(averageEdrs)):
+            for f in range(len(allShutterEdrs)):
+                averageEdrs[e] += allShutterEdrs[f][e]
+        averageEdrs = [q/len(allShutterEdrs) for q in averageEdrs]
+
+        wx1.plot(averagePressure, color=colours[colourIndex+4], linewidth=5)
+        wx1.plot(averageEdrs, '--', color=colours[colourIndex+4], linewidth=2)
+
+        allShutterEdrs = []
+        allShutterPressure= []
+        allAveragePressure.append(averagePressure)
+
+averageDiv = [allAveragePressure[2][qw]/allAveragePressure[1][qw] for qw in range(1,50)]
+wx1.plot(averageDiv)
+
 
 print(Rguess)
 maxEdRecorded = [[] for m in range(numFiles)] # store maximum pressure in shuttered breaths
@@ -773,12 +820,17 @@ if(STACK):
     plt.legend(['Blue = unbanded (1A)', 'Green = banded (1B)'])
     plt.show()
 
+if(STACKSHUTTER):
+    plt.show()
+
 
 print('\n')
 print('res:')
 mean_grad = []
+mean_gradEnd = []
 for i in range(numFiles):
     mean_grad.append(np.nanmean(gradients[i]))
+    mean_gradEnd.append(np.nanmean(gradients[i]))
     print(mean_grad[-1])
     print(np.nanstd(gradients[i], axis=0))
 
@@ -794,7 +846,18 @@ dependents = [[mean_grad[i]*Rx[i] for i in range(numFiles)]]
 independents = [[-mean_grad[i] for i in range(numFiles)], Es]
 
 print(gradients)
+plt.rc('legend',**{'fontsize':12})
+z, axes = plt.subplots(2,2, sharex=False)
+
+superLoc = 0
 for i in range(numFiles):
-    plt.plot(gradients[i], '-o', color=colours[i])
-    plt.plot([mean_grad[i]]*10, '--', color=colours[i])
+    axes[superLoc][i%2].plot(gradients[i], '-o', color=colours[i])
+    axes[superLoc][i%2].plot([mean_grad[i]]*(len(gradients[i])), '--', color=colours[i])
+    axes[superLoc][i%2].plot(gradientsEnd[i], '-x', color=colours[i])
+    axes[superLoc][i%2].plot([mean_gradEnd[i]]*(len(gradients[i])), '--', color=colours[i])
+    axes[superLoc][i%2].set_title(xLabels[i])
+    axes[superLoc][i%2].set_xlabel('Breath')
+    axes[superLoc][i%2].set_ylabel('Decay rate')
+    if(i==1):
+        superLoc = not(superLoc)
 plt.show()

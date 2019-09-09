@@ -38,7 +38,7 @@ void loop() {
   int low_pressure_measurement;
   float flow;
 
-  bool peak_flow_test = false;
+  bool peak_flow_test = true;
 
   while(1){
     
