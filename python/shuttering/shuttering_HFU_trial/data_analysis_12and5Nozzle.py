@@ -483,9 +483,9 @@ for i in range(numFiles):
             ########################
             # find 30ml after shutter start
             # 2.5ml ~ 10% (assume)
-            volShuttered = averageVol[shutterStartPoint] - averageVol[shutter_splits_start[nextShutter-1]-flow_splits[breath]]
-            print(volShuttered)
-            targetVolume = min(AminusBVol[trueMaxFlowIndex] + volShuttered/4, AminusBVol[-2])
+            #volShuttered = averageVol[shutterStartPoint] - averageVol[shutter_splits_start[nextShutter-1]-flow_splits[breath]]
+            #print(volShuttered)
+            targetVolume = min(AminusBVol[trueMaxFlowIndex] + AminusBVol[-1]/4, AminusBVol[-2])
             thirtyMlAfterMax = find_first_index_above_value(AminusBVol, maxFlowIndex, targetVolume)
 
 
@@ -510,8 +510,14 @@ for i in range(numFiles):
                     volumeStagnation = index
                     break
 
+            print(flowInflection)
+            print(volumeStagnation)
+            print(thirtyMlAfterMax)
             endFlowIndex = min(flowInflection, volumeStagnation, thirtyMlAfterMax)
-            expEnd = find_first_index_below_value(AminusB, endFlowIndex, 0.01)-1
+
+            #expEnd = find_first_index_below_value(AminusB, endFlowIndex, 0.5)-1
+            expEnd = endFlowIndex + (len(flw)-endFlowIndex)*3/4
+            print(expEnd)
             print(maxFlowIndex)
             print(endFlowIndex)
             print(shutterStartPoint)
