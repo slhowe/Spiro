@@ -1,5 +1,4 @@
 EESchema Schematic File Version 4
-LIBS:spiroBoardV2-cache
 EELAYER 30 0
 EELAYER END
 $Descr A4 11693 8268
@@ -19,7 +18,7 @@ pressureSensorLow1
 Text Label 8300 2450 0    50   ~ 0
 pressureSensorHigh
 $Comp
-L MCU_Microchip_ATmega:ATmega32U4-MU U?
+L spiroBoardV2-rescue:ATmega32U4-MU-MCU_Microchip_ATmega U?
 U 1 1 5D70EC65
 P 7700 3350
 AR Path="/5D70EC65" Ref="U?"  Part="1" 

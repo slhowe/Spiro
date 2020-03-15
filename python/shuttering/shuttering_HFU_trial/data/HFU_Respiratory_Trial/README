@@ -1,0 +1,24 @@
+
+
+Data:
+
+12andHalfNozzle:
+    Contains 4 data sets.
+    2 are with 12.5mm nozzle attached, 2 are no nozzle
+    Data has bumps in in (subject reacting to shuttering)
+
+bumpTest
+    Contains 4 data sets
+
+    Testing what causes bumps, checking they aren't due to device
+
+P1-JGC-18032019
+    Test shuttering vs standard plethysmography FE
+    2 resistances
+    Large resistance sucks :(
+
+P1-JGC-21032019
+    Test shuttering with a bunch of resistors
+
+zips:
+    contains the zip files

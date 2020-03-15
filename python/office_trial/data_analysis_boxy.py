@@ -480,10 +480,8 @@ for subject in range(numSubjects):
                 print('____ results for ____')
                 print(filename)
                 print('________')
-                for n in range(len(decays[subject][testFile][test])):
-                    print(decays[subject][testFile][test][n])
-
-
+                for n in range(len(decaysFull[subject][testFile][test])):
+                    print(decaysFull[subject][testFile][test][n])
 
 
             except IOError:
@@ -504,6 +502,16 @@ for subject in range(numSubjects):
 
 
 # Mean analysis
+for s in range(len(subjects)):
+    print('~~~~~ subject {} ~~~~~'.format(s))
+    for tst in range(len(test_types)):
+        arr = []
+        for n in range(len(decaysFull[s][tst][0])):
+            arr.append(decaysFull[s][tst][0][n])
+        print('mean: {}'.format(np.mean(arr)))
+        print('sd: {}'.format(np.std(arr)))
+
+
 
 
 if(dataBoxy):
@@ -511,7 +519,7 @@ if(dataBoxy):
     sns.set(style="whitegrid", font_scale=2.5)
     df = pd.DataFrame(dataBoxy, columns=['Decay rate','Subject', 'External R added', 'Test'])#,'Effort','Volume'])
     ax=sns.boxplot(x='Subject', y="Decay rate", hue='External R added',  data=df)
-    sns.stripplot(x="Subject", y="Decay rate", hue="External R added", data=df, size=5, color="black", split=True)
+    sns.stripplot(x="Subject", y="Decay rate", hue="External R added", data=df, size=7, color="black", split=True)
     plt.xlabel("Subject")
 
     # Get the handles and labels. For this example it'll be 2 tuples

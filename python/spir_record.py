@@ -24,6 +24,7 @@ def get_sampling_frequency(ser, max_samples):
     period = 0
     count = 0
     time_last = ser.readline().decode().strip()
+    print(time_last)
     time_last = time_last.split(",")
     while(i < max_samples):
         time_now = ser.readline().decode().strip()
@@ -57,7 +58,8 @@ def append_csv(filename, data_array):
         write_to_csv(csvwriter, data_array)
 
 def main():
-    ser = serial.Serial('/dev/ttyUSB0', 115200)
+    #ser = serial.Serial('/dev/ttyUSB0', 115200)
+    ser = serial.Serial('/dev/ttyACM0', 115200)
 
     array_length = 10#samples
     data_array = [0]*array_length
