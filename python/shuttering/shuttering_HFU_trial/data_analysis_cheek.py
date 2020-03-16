@@ -603,6 +603,8 @@ if(GenRoccTable):
 #=============================================================
 dataNums = [15, 150, 16, 160, 17, 170, 18, 180, 112, 1120, 19, 190, 20, 200, 21, 210, 22, 220]
 printNames = ['1', '1a', '2', '2a', '3', '3a', '4', '4a', '5', '5a', '6', '6a', '7', '7a', '8', '8a', '9', '9a']
+dataNums = [15, 150, 16, 160, 17, 170,  112, 1120, 19, 190, 20, 200, 21, 210, 22, 220]
+printNames = ['1', '1a', '2', '2a', '3', '3a',  '5', '5a', '6', '6a', '7', '7a', '8', '8a', '9', '9a']
 #dataNums = [15, 150]
 #printNames = ['1', '1a']
 printnameindex = 0
@@ -1055,7 +1057,7 @@ while indexer < len(printNames):
     # always nohold first
     name = printNames[indexer]
     # Mean of remining points
-    noholdE= extractMeanMechanic(name, megaID, megaEstart)
+    noholdE= extractMeanMechanic(name, megaID, megaEend)
     noholdR= extractMeanMechanic(name, megaID, megaRocc)
     noholdM= extractMeanMechanic(name, megaID, megaRelaxGrad)
 
@@ -1068,7 +1070,7 @@ while indexer < len(printNames):
     indexer += 1
     name = printNames[indexer]
 
-    holdE = extractMeanMechanic(name, megaID, megaEstart)
+    holdE = extractMeanMechanic(name, megaID, megaEend)
     holdR = extractMeanMechanic(name, megaID, megaRocc)
     holdM = extractMeanMechanic(name, megaID, megaRelaxGrad)
 
@@ -1099,6 +1101,11 @@ d = {'Elastance':increasesInE, 'Resistance':increasesInR, 'Viscoelastic':increas
 df = pd.DataFrame(data=d)
 corr = df.corr()
 print(corr)
+
+print('p values:')
+print('E vs R: {}'.format(stats.pearsonr(df['Elastance'], df['Resistance'])[1]))
+print('E vs V: {}'.format(stats.pearsonr(df['Elastance'], df['Viscoelastic'])[1]))
+print('R vs V: {}'.format(stats.pearsonr(df['Resistance'], df['Viscoelastic'])[1]))
 
 if (len(dataNums)>=6):
     g = sns.PairGrid(df)
