@@ -1,0 +1,11 @@
+NewFiles are recorded from Oscilloscope.
+
+
+Data records voltage across solenoid.
+Solenoid sent 12V pulses by control board.
+
+Looking for inflection point as time taken for full shutter closure
+
+NewFile1 is with shutter
+NewFile2 is without shutter inserted in solenoid
+

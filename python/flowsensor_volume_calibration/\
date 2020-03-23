@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# Import my extensions
+import sys
+sys.path.insert(0, '/home/sarah/Documents/Spirometry/python/extensions')
+
+import csv
+import matplotlib.pyplot as plt
+from filters import hamming
+from calculus import integral
+from breath_analysis import split_breaths
+
+path = './'
+files = [
+        'blue_flowsensor_calibration_3.csv',
+        'blue_flowsensor_calibration_2.csv',
+         ]
+
+# Create data classes
+pressure_high = []
+flow = []
+new_flow = []
+pressure_low= []
+time = []
+
+for i in range(len(files)):
+    # Store pressure and flow data
+    filename = path + files[i]
+    with open(filename, 'rb') as csvfile:
+        reader = csv.reader(csvfile, delimiter = ',')
+
+        # skip header line
+        header = reader.next()
+
+        for row in reader:
+            dp_pressure_high = -float(row[0])
+            dp_time = float(row[3])
+
+            pressure_high.append(dp_pressure_high)
+            time.append(dp_time)
+
+
+#    plt.plot(dataset.time, dataset.pressure, 'b',
+#             dataset.time, dataset.flow, 'r',
+#             )
+
+    # Filter high resolution pressure data
+    fc = 15#filter cutoff
+    bw = 10#filter bandwidth (taps?)
+    pressure = hamming(pressure_high, fc, 300, bw, plot=False)
+
+    pressure_squared = [p**2 for p in pressure]
+
+    # Find the end point of the 3L sections
+    # Start with insp 3L, then exp 3L
+    # Each insp and exp needs different fit
+    # Ignore any data with pressure greater than 290
+
+    # if pressure == 0:
+    # at a flat point
+    # start of new section
+    # find end of section - next P=0 at different volume
+    P_integral = integral(pressure, 300)
+
+    starts = []
+    for index in range(len(P_integral)-1):
+        if ((P_integral[index] - P_integral[index+1]) < 0.1):
+            if(len(starts > 0)):
+                if(abs(P_integral(index) - P_integral[starts[-1]]) > 200):
+                    starts.append(index)
+            else:
+                starts.append(index)
+
+    print(starts)
+    start_times = [time[s] for s in starts]
+    start_pressures = [P_integral[s] for s in starts]
+
+
+
+    plt.plot(time, pressure_high, 'b',)
+    plt.plot(time, pressure, 'orange', linewidth=2,)
+    plt.plot(start_times, start_pressures, 'or')
+    plt.plot(
+             #time, pressure_low, 'c',
+             time, P_integral, 'm',
+             )
+
+    plt.grid()
+    plt.legend(["Pressure high",
+                "filtered pressure",
+                "integral of pressure",
+                ])
+    plt.show()
+
+    print("This is the plot of the High pressure measurement (low res one) vs volume")
+    plt.plot(volume, pressure)
+
+    plt.grid()
+    plt.xlabel("volume")
+    plt.ylabel("pressure (lung estimate when occluded)")
+    plt.show()
+

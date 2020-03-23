@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name solenoidParts)(type Legacy)(uri ${KIPRJMOD}/solenoidParts.lib)(options "")(descr ""))
+  (lib (name baseBoard-rescue)(type Legacy)(uri ${KIPRJMOD}/baseBoard-rescue.lib)(options "")(descr ""))
+)

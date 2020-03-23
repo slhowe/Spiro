@@ -1,0 +1,384 @@
+EESchema Schematic File Version 4
+EELAYER 26 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title "Solenoid"
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L Connector:Conn_01x02_Female J1
+U 1 1 5C4A7C23
+P 950 750
+F 0 "J1" H 977 726 50  0000 L CNN
+F 1 "Conn_01x02_Female" H 977 635 50  0000 L CNN
+F 2 "Connectors_Terminal_Blocks:TerminalBlock_bornier-2_P5.08mm" H 950 750 50  0001 C CNN
+F 3 "~" H 950 750 50  0001 C CNN
+	1    950  750 
+	1    0    0    -1  
+$EndComp
+Text Label 750  750  2    50   ~ 0
+Vin
+$Comp
+L power:GND #PWR0101
+U 1 1 5C4A7CF8
+P 750 850
+F 0 "#PWR0101" H 750 600 50  0001 C CNN
+F 1 "GND" H 755 677 50  0000 C CNN
+F 2 "" H 750 850 50  0001 C CNN
+F 3 "" H 750 850 50  0001 C CNN
+	1    750  850 
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C Csuper1
+U 1 1 5C50FC3F
+P 1500 3350
+F 0 "Csuper1" H 1615 3396 50  0000 L CNN
+F 1 "1F" H 1615 3305 50  0000 L CNN
+F 2 "SpiroParts:C_SCM_D10_W20_P155" H 1538 3200 50  0001 C CNN
+F 3 "~" H 1500 3350 50  0001 C CNN
+	1    1500 3350
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0105
+U 1 1 5C50FCBF
+P 1500 3800
+F 0 "#PWR0105" H 1500 3550 50  0001 C CNN
+F 1 "GND" H 1505 3627 50  0000 C CNN
+F 2 "" H 1500 3800 50  0001 C CNN
+F 3 "" H 1500 3800 50  0001 C CNN
+	1    1500 3800
+	1    0    0    -1  
+$EndComp
+Text Label 1700 3200 0    50   ~ 0
+superCap
+Wire Wire Line
+	1350 3200 1500 3200
+Connection ~ 1500 3200
+Wire Wire Line
+	1500 3200 1700 3200
+Text Label 6150 900  2    50   ~ 0
+superCap
+$Comp
+L Device:R R1_sol1
+U 1 1 5C51066F
+P 6300 1400
+F 0 "R1_sol1" H 6370 1446 50  0000 L CNN
+F 1 "22" V 6300 1350 50  0000 L CNN
+F 2 "Resistor_SMD:R_0603_1608Metric" V 6230 1400 50  0001 C CNN
+F 3 "~" H 6300 1400 50  0001 C CNN
+	1    6300 1400
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R2_sol1
+U 1 1 5C510943
+P 6850 1850
+F 0 "R2_sol1" V 6750 1700 50  0000 L CNN
+F 1 "22" V 6850 1800 50  0000 L CNN
+F 2 "Resistor_SMD:R_0603_1608Metric" V 6780 1850 50  0001 C CNN
+F 3 "~" H 6850 1850 50  0001 C CNN
+	1    6850 1850
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Device:Q_PMOS_GSD PMOS1
+U 1 1 5C51797E
+P 6300 1750
+F 0 "PMOS1" V 6550 1750 50  0000 C CNN
+F 1 "RQ5E035ATTCL " V 6641 1750 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 6500 1850 50  0001 C CNN
+F 3 "~" H 6300 1750 50  0001 C CNN
+	1    6300 1750
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	6500 1850 6700 1850
+Wire Wire Line
+	5950 2250 5950 1850
+Wire Wire Line
+	5950 1850 6100 1850
+$Comp
+L Device:C C1_sol1
+U 1 1 5C518019
+P 7150 2450
+F 0 "C1_sol1" H 7265 2496 50  0000 L CNN
+F 1 "4.7mF" H 7265 2405 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 7188 2300 50  0001 C CNN
+F 3 "~" H 7150 2450 50  0001 C CNN
+	1    7150 2450
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R5_sol
+U 1 1 5C518095
+P 7750 2500
+F 0 "R5_sol" H 7820 2546 50  0000 L CNN
+F 1 "0.43" V 7750 2400 50  0000 L CNN
+F 2 "Resistor_SMD:R_0603_1608Metric" V 7680 2500 50  0001 C CNN
+F 3 "~" H 7750 2500 50  0001 C CNN
+	1    7750 2500
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7000 1850 7150 1850
+Wire Wire Line
+	7150 1850 7150 2300
+Wire Wire Line
+	5950 2900 7150 2900
+Wire Wire Line
+	7150 2900 7150 2600
+Wire Wire Line
+	7150 2900 7750 2900
+Connection ~ 7150 2900
+Wire Wire Line
+	7750 1850 7150 1850
+Connection ~ 7150 1850
+$Comp
+L Device:Q_NMOS_GDS NMOS1
+U 1 1 5C518F3D
+P 7650 3350
+F 0 "NMOS1" H 7855 3396 50  0000 L CNN
+F 1 "SSM3K345R,LF " H 7855 3305 50  0000 L CNN
+F 2 "Package_TO_SOT_SMD:SOT-23" H 7850 3450 50  0001 C CNN
+F 3 "~" H 7650 3350 50  0001 C CNN
+	1    7650 3350
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7750 2900 7750 3150
+Text Label 7150 3350 2    50   ~ 0
+solenoidToggle
+$Comp
+L Device:R R4_sol1
+U 1 1 5C5193D8
+P 7300 3350
+F 0 "R4_sol1" V 7200 3350 50  0000 C CNN
+F 1 "1K" V 7300 3350 50  0000 C CNN
+F 2 "Resistor_SMD:R_0603_1608Metric" V 7230 3350 50  0001 C CNN
+F 3 "~" H 7300 3350 50  0001 C CNN
+	1    7300 3350
+	0    1    1    0   
+$EndComp
+$Comp
+L power:GND #PWR0106
+U 1 1 5C5194EB
+P 7750 3550
+F 0 "#PWR0106" H 7750 3300 50  0001 C CNN
+F 1 "GND" H 7755 3377 50  0000 C CNN
+F 2 "" H 7750 3550 50  0001 C CNN
+F 3 "" H 7750 3550 50  0001 C CNN
+	1    7750 3550
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:L Solenoid1
+U 1 1 5C51A457
+P 7750 1150
+F 0 "Solenoid1" H 7803 1196 50  0000 L CNN
+F 1 "5VDC 8.2W 3.2Ohm" H 7803 1105 50  0000 L CNN
+F 2 "" H 7750 1150 50  0001 C CNN
+F 3 "~" H 7750 1150 50  0001 C CNN
+	1    7750 1150
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7750 1300 7750 1550
+$Comp
+L Device:D D3_sol1
+U 1 1 5C51ABC3
+P 5950 2400
+F 0 "D3_sol1" V 5996 2321 50  0000 R CNN
+F 1 "3A 100V" V 5905 2321 50  0000 R CNN
+F 2 "Diode_SMD:D_SOD-323" H 5950 2400 50  0001 C CNN
+F 3 "~" H 5950 2400 50  0001 C CNN
+	1    5950 2400
+	0    -1   -1   0   
+$EndComp
+Wire Wire Line
+	5950 2550 5950 2900
+Wire Wire Line
+	7750 1550 7150 1550
+Wire Wire Line
+	7150 1550 7150 1500
+Connection ~ 7750 1550
+Wire Wire Line
+	7750 1550 7750 1850
+Wire Wire Line
+	7750 900  7750 1000
+Wire Wire Line
+	6300 900  6300 1250
+Wire Wire Line
+	6300 900  6150 900 
+Connection ~ 6300 900 
+$Comp
+L Device:D D2_sol1
+U 1 1 5C51F58C
+P 7150 1350
+F 0 "D2_sol1" V 7104 1429 50  0000 L CNN
+F 1 "3A 100V" V 7195 1429 50  0000 L CNN
+F 2 "Diode_SMD:D_SOD-323" H 7150 1350 50  0001 C CNN
+F 3 "~" H 7150 1350 50  0001 C CNN
+	1    7150 1350
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	6300 900  7750 900 
+$Comp
+L Device:D D1_sol1
+U 1 1 5C5206E3
+P 7150 1050
+F 0 "D1_sol1" V 7104 1129 50  0000 L CNN
+F 1 "3A 100V" V 7195 1129 50  0000 L CNN
+F 2 "Diode_SMD:D_SOD-323" H 7150 1050 50  0001 C CNN
+F 3 "~" H 7150 1050 50  0001 C CNN
+	1    7150 1050
+	0    1    1    0   
+$EndComp
+Wire Notes Line
+	5650 700  8600 700 
+Wire Notes Line
+	8600 700  8600 3850
+Wire Notes Line
+	8600 3850 5650 3850
+Wire Notes Line
+	5650 3850 5650 700 
+$Comp
+L power:GND #PWR0107
+U 1 1 5C52319F
+P 3500 1500
+F 0 "#PWR0107" H 3500 1250 50  0001 C CNN
+F 1 "GND" H 3505 1327 50  0000 C CNN
+F 2 "" H 3500 1500 50  0001 C CNN
+F 3 "" H 3500 1500 50  0001 C CNN
+	1    3500 1500
+	1    0    0    -1  
+$EndComp
+Text Label 4250 1150 0    50   ~ 0
+5V_regulated
+Wire Wire Line
+	2800 1100 2900 1100
+Wire Wire Line
+	2900 1100 2900 1250
+Connection ~ 2900 1100
+$Comp
+L Device:C C1_5Vreg1
+U 1 1 5C5231A9
+P 2900 1600
+F 0 "C1_5Vreg1" H 3015 1646 50  0000 L CNN
+F 1 "1uF" H 3015 1555 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 2938 1450 50  0001 C CNN
+F 3 "~" H 2900 1600 50  0001 C CNN
+	1    2900 1600
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	2900 1250 2900 1450
+Wire Wire Line
+	2900 1250 3050 1250
+Wire Wire Line
+	2900 1100 3050 1100
+Connection ~ 2900 1250
+$Comp
+L power:GND #PWR0108
+U 1 1 5C5231B8
+P 4200 1750
+F 0 "#PWR0108" H 4200 1500 50  0001 C CNN
+F 1 "GND" H 4205 1577 50  0000 C CNN
+F 2 "" H 4200 1750 50  0001 C CNN
+F 3 "" H 4200 1750 50  0001 C CNN
+	1    4200 1750
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR0109
+U 1 1 5C5231BE
+P 2900 1750
+F 0 "#PWR0109" H 2900 1500 50  0001 C CNN
+F 1 "GND" H 2905 1577 50  0000 C CNN
+F 2 "" H 2900 1750 50  0001 C CNN
+F 3 "" H 2900 1750 50  0001 C CNN
+	1    2900 1750
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C2_5Vreg1
+U 1 1 5C5231C4
+P 4200 1600
+F 0 "C2_5Vreg1" H 4315 1646 50  0000 L CNN
+F 1 "1uF" H 4315 1555 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 4238 1450 50  0001 C CNN
+F 3 "~" H 4200 1600 50  0001 C CNN
+	1    4200 1600
+	1    0    0    -1  
+$EndComp
+Text Label 2800 1100 2    50   ~ 0
+Vin
+Wire Notes Line
+	2450 2100 2450 700 
+Text Notes 4000 800  0    50   ~ 0
+5V regulator
+Wire Notes Line
+	4850 700  4850 2100
+Wire Notes Line
+	2450 700  4850 700 
+Wire Notes Line
+	2450 2100 4850 2100
+$Comp
+L solenoidParts:ADP3330ARTZ-5-RL7 U?
+U 1 1 5C58F733
+P 3150 950
+F 0 "U?" H 3500 1125 50  0000 C CNN
+F 1 "ADP3330ARTZ-5-RL7" H 3500 1034 50  0000 C CNN
+F 2 "" H 3550 1200 50  0001 C CNN
+F 3 "" H 3550 1200 50  0001 C CNN
+	1    3150 950 
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3950 1150 4200 1150
+Wire Wire Line
+	4200 1150 4200 1450
+Connection ~ 4200 1150
+Wire Wire Line
+	4200 1150 4250 1150
+$Comp
+L Device:C Csuper2
+U 1 1 5C590AED
+P 1500 3650
+F 0 "Csuper2" H 1615 3696 50  0000 L CNN
+F 1 "1F" H 1615 3605 50  0000 L CNN
+F 2 "SpiroParts:C_SCM_D10_W20_P155" H 1538 3500 50  0001 C CNN
+F 3 "~" H 1500 3650 50  0001 C CNN
+	1    1500 3650
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:R R3_sol
+U 1 1 5C591A1E
+P 7750 2200
+F 0 "R3_sol" H 7820 2246 50  0000 L CNN
+F 1 "4.0" V 7750 2100 50  0000 L CNN
+F 2 "Resistor_SMD:R_0603_1608Metric" V 7680 2200 50  0001 C CNN
+F 3 "~" H 7750 2200 50  0001 C CNN
+	1    7750 2200
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7750 2650 7750 2900
+Connection ~ 7750 2900
+Wire Wire Line
+	7750 2050 7750 1850
+Connection ~ 7750 1850
+Text Label 1350 3200 2    50   ~ 0
+Vin
+$EndSCHEMATC

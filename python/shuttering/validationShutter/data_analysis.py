@@ -21,6 +21,7 @@ from dataStore import Datasets
 import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
 
+
 #NOTE
 #
 # 1 - no Rx
@@ -77,7 +78,7 @@ def time_dependent_exp_fit(flow, time):
 
 
 
-def identifyOutliers(x, outlierConstant=1.5):
+def identifyOutliers(x, outlierConstant):
     # Normally, an outlier is outside 1.5 * the IQR
     arr = np.array(x)
     upper_quartile = np.nanpercentile(arr, 75)
@@ -302,7 +303,7 @@ class averageBreaths():
 
 
     def clean(self):
-        self.flow = []
+        self.data = []
 
 
 class QVLoopAnalyser():
@@ -376,7 +377,7 @@ class QVLoopAnalyser():
         #self.endFlowIndex = min(flowInflection, volumeStagnation)
         self.endFlowIndex = flowInflection
 
-        self.expEndIndex = self.endFlowIndex + (len(self.flw)-self.endFlowIndex)*2/3
+        self.expEndIndex = self.endFlowIndex + (len(self.flw)-self.endFlowIndex)*1/3
         if(self.flw[self.expEndIndex] <= 0):
             self.expEndIndex = find_first_index_below_value(self.flw, self.endFlowIndex, 0)
 #        print('Full expiration end point defined as 75% of data after end shutter range: {}'.format(self.expEndIndex))
@@ -468,10 +469,10 @@ class mechanicsAnalyser():
 
         # flow 15ms before shutter
         # filter flow for smoother fit in resistance added data
-        fc = 120#filter cutoff
-        bw = 30#filter bandwidth (taps?)
-        filtFlow = hamming(flow, fc, 300, bw, plot=False)
-        filtFlow = np.real(filtFlow).tolist()
+        #fc = 120#filter cutoff
+        #bw = 30#filter bandwidth (taps?)
+        #filtFlow = hamming(flow, fc, 300, bw, plot=False)
+        #filtFlow = np.real(filtFlow).tolist()
 
         if(0):
             plt.figure()
@@ -479,21 +480,25 @@ class mechanicsAnalyser():
             plt.plot(filtFlow)
             plt.show()
 
-        qminus15 = filtFlow[shutterClose-ms15]
+        qminus15 = flow[shutterClose-ms15]
         pminus15 = pressure[shutterClose-ms15]
 
         # Rocc as change in pressure due to shutter/flow pre shutter
         Rocc = (p15 - pminus15)/qminus15
        # print('Rocc: {}'.format(Rocc))
 
-        if(0):
-            plt.figure(123)
-            plt.plot(pressure)
-            plt.plot(shutterClose, pressure[shutterClose], 'o')
-            plt.plot(shutterClose+ms30, pressure[shutterClose+ms30], 'x')
-            plt.plot(shutterClose+ms75, pressure[shutterClose+ms75], 'x')
-            plt.plot(shutterClose+ms15, p15, 'd')
-            plt.plot(shutterClose-ms15, pressure[shutterClose-ms15], 'd')
+        if(1):
+            print()
+            plt.rc('legend',**{'fontsize':12})
+            z, (zx1, zx2) = plt.subplots(2, sharex=False)
+
+            zx1.plot(flow)
+            zx1.plot(shutterClose-ms15, qminus15, 'bo')
+
+            zx2.plot(pressure)
+            zx2.plot(shutterClose+ms30, pressure[shutterClose+ms30], 'rx')
+            zx2.plot(shutterClose+ms75, pressure[shutterClose+ms75], 'rx')
+            zx2.plot(shutterClose-ms15, p15 - pressure[shutterClose-ms15], 'bo')
             plt.show()
 
         return(Rocc/100.0)
@@ -527,22 +532,7 @@ class mechanicsAnalyser():
         Ed = startShutterPressure/shutterVolume
         return(Ed)
 
-def fourierPlot(data, samplePeriod, plotID):
-    import scipy.fftpack
 
-    # Number of samplepoints
-    N = len(data)
-    # sample spacing
-    T = samplePeriod
-    yf = scipy.fftpack.fft(data)
-    xf = np.linspace(0.0, 1.0/(2.0*T), N/2)
-
-    plt.figure(007)
-    if('a' in plotID):
-        plt.plot(xf, 2.0/N * np.abs(yf[:N//2]), 'r')
-    else:
-        plt.plot(xf, 2.0/N * np.abs(yf[:N//2]), 'b')
-    #plt.show()
 
 #=============================================================
 #=============================================================
@@ -551,23 +541,22 @@ def fourierPlot(data, samplePeriod, plotID):
 colours = ['blue','cyan', 'green','red','black','pink','purple','magenta', 'orange', 'brown', 'yellow','gray','olive','lavender','gold','deeppink','orchid','cadetblue','palegreen','blue','cyan', 'green','red','black','pink','purple','magenta', 'orange', 'brown', 'yellow','gray','olive','lavender','gold','deeppink','orchid','cadetblue','palegreen']
 symbols = ['o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','o','d','d','d','d','d','d','d','d','d','d','d','d','d','d','d','d','d','d','d',]
 #colours = ['blue', 'green', 'red', 'black', 'purple', 'cyan', 'magenta', 'brown', 'orange', 'pink', 'yellow', 'blue', 'green', 'red', 'black', 'purple', 'cyan', 'magenta']
-colourIndex = -1
+colourIndex = 0
 
-megaID = []
-megaEstart = []
+megaRelaxGrad = []
+megaTau = []
 megaRocc = []
-megaEend = []
-megaRaws = []
-megaRelaxGrad= []
-megaVolume = []
-megaPMax = []
+megaE = []
+megaPpk = []
+megaPstart = []
+megaVol = []
 
 #==================
 # Debug etc plots
 STACK = 0
 FULLSET = 0
 STACKSHUTTER = 0
-STACKPRESSURE = 0
+STACKPRESSURE = 1
 BOXPLOTS = 0
 
 if(STACK):
@@ -601,18 +590,13 @@ if(GenRoccTable):
     tableIDs = []
 
 #=============================================================
-dataNums = [15, 150, 16, 160, 17, 170, 18, 180, 112, 1120, 19, 190, 20, 200, 21, 210, 22, 220]
-printNames = ['1', '1a', '2', '2a', '3', '3a', '4', '4a', '5', '5a', '6', '6a', '7', '7a', '8', '8a', '9', '9a']
-dataNums = [15, 150, 16, 160, 17, 170,  112, 1120, 19, 190, 20, 200, 21, 210, 22, 220]
-printNames = ['1', '1a', '2', '2a', '3', '3a',  '5', '5a', '6', '6a', '7', '7a', '8', '8a', '9', '9a']
-#dataNums = [15, 150]
-#printNames = ['1', '1a']
-printnameindex = 0
+dataNums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17] #150]
+#dataNums = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17] #150]
+#dataNums = [11, 12, 13] #150]
+#dataNums = [9]
 for DATASET in dataNums:
     dataInfo = Datasets(DATASET)
     dataID = 'V'+ str(DATASET)
-    printID = printNames[printnameindex]
-    printnameindex += 1
     numFiles= len(dataInfo.files)
 
     #=============================================================
@@ -634,26 +618,23 @@ for DATASET in dataNums:
     allRocc = []
     allRx = []
     allE = []
-    allEstart = []
     allRrs = []
     allShutterVolume= []
     allRelaxGrad = []
     allPeakAvgFlow = []
     allPeakShutterFlow = []
     allPeakAminusB = []
-    allPeakPressure = []
     allStartShutterPressure = []
     allEndShutterPressure = []
     allStartShutterIndex = []
-    allFourier = []
 
 
     #=============================================================
     measuredMechanics = mechanicsAnalyser()
 
-    numFiles = min(numFiles, 2) # uncomment for only looking at no_Rx data
+    #numFiles = 2 # uncomment for only looking at no_Rx data
     for i in range(numFiles):
-        colourIndex += 1
+        #colourIndex += 1
 
         #####################
         # GET DATA FROM FILE#
@@ -781,9 +762,11 @@ for DATASET in dataNums:
 
                 # Estimate flow due to shutter
                 AminusBTrue = [fileBreaths.flw[k]-averageFlow[k] for k in range(min(len(fileBreaths.flw),len(averageFlow)))]
+                AminusBTrue = fileBreaths.flw
 
                 # Volumes moved due to shutter
                 AminusBVolTrue = integral(AminusBTrue, FS)
+
 
 
                 # Determine linear range of post shutter flow
@@ -835,7 +818,6 @@ for DATASET in dataNums:
                 # Save stuff
                 allRelaxGrad.append(relaxGrad)
                 allPeakAvgFlow.append(peakAvgFlow)
-                allPeakPressure.append(fileBreaths.pres[peakPressureIndex])
                 allPeakShutterFlow.append(peakShutterFlow)
                 allPeakAminusB.append(peakAminusB)
                 allStartShutterIndex.append(startIndex)
@@ -845,16 +827,11 @@ for DATASET in dataNums:
                 allRx.append(Rx)
                 allShutterVolume.append(shutterVolume)
                 allE.append(Ed)
-                allEstart.append(Estart)
                 allRrs.append(Rrs)
-
-                for amb in AminusBTrue:
-                    allFourier.append(amb)
 
 
                 # Plot stuff
                 ########################
-
                 if(STACK):
                     ax1.plot(averageFlow, 'purple')
                     ax1.plot(fileBreaths.flw, 'r', linewidth=3)
@@ -871,22 +848,29 @@ for DATASET in dataNums:
 
                 if(STACKPRESSURE):
                     # QV loops
-                    uax1.plot(AminusBVolTrue, AminusBTrue, linewidth = 3)
-                    uax1.plot(AminusBVolTrue, AminusBTrue, ':', linewidth = 3)
+                    minVol = min(AminusBVolTrue)
+                    newAminusBVol = [v-minVol for v in AminusBVolTrue]
+                    uax1.plot(newAminusBVol, AminusBTrue, linewidth = 3)
+                    uax1.plot(newAminusBVol, AminusBTrue, ':', linewidth = 3)
                     uax1.plot(measuredQVAnalysis.volFilt, measuredQVAnalysis.flwFilt, '.-', linewidth = 3)
-                    uax1.plot(AminusBVolTrue[measuredQVAnalysis.maxFlwIndex], AminusBTrue[measuredQVAnalysis.maxFlwIndex], 'o', color='yellow')
-                    uax1.plot(AminusBVolTrue[measuredQVAnalysis.endFlowIndex], AminusBTrue[measuredQVAnalysis.endFlowIndex], 'o', color='yellow')
-                    uax1.plot(AminusBVolTrue[measuredQVAnalysis.expEndIndex], AminusBTrue[measuredQVAnalysis.expEndIndex], 'o', color='yellow')
-                    uax1.plot(AminusBVolTrue[measuredQVAnalysis.negFlowIndex], AminusBTrue[measuredQVAnalysis.negFlowIndex], 'o', color='cyan')
+                    uax1.plot(newAminusBVol[measuredQVAnalysis.maxFlwIndex], AminusBTrue[measuredQVAnalysis.maxFlwIndex], 'o', color='yellow')
+                    uax1.plot(newAminusBVol[measuredQVAnalysis.endFlowIndex], AminusBTrue[measuredQVAnalysis.endFlowIndex], 'o', color='yellow')
+                    uax1.plot(newAminusBVol[measuredQVAnalysis.expEndIndex], AminusBTrue[measuredQVAnalysis.expEndIndex], 'o', color='yellow')
+                    uax1.plot(newAminusBVol[measuredQVAnalysis.negFlowIndex], AminusBTrue[measuredQVAnalysis.negFlowIndex], 'o', color='cyan')
 
-                    uax1.plot(averageVol, averageFlow, '-.', color='pink', linewidth = 3)
-                    uax1.plot(averageVol[measuredQVAnalysis.maxFlwIndex], averageFlow[measuredQVAnalysis.maxFlwIndex], 'o', color='yellow')
-                    uax1.plot(averageVol[measuredQVAnalysis.endFlowIndex], averageFlow[measuredQVAnalysis.endFlowIndex], 'o', color='yellow')
-                    uax1.plot(averageVol[measuredQVAnalysis.expEndIndex], averageFlow[measuredQVAnalysis.expEndIndex], 'o', color='yellow')
+                    plt.figure()
+                    plt.plot(averageVol, averageFlow, '-.', color='Red', linewidth = 3)
+                    plt.plot([averageVol[measuredQVAnalysis.endFlowIndex], averageVol[measuredQVAnalysis.expEndIndex]],[averageFlow[measuredQVAnalysis.endFlowIndex], averageFlow[measuredQVAnalysis.expEndIndex]] )
+                    plt.plot(averageVol[measuredQVAnalysis.maxFlwIndex], averageFlow[measuredQVAnalysis.maxFlwIndex], 'o', color='yellow')
+                    plt.plot(averageVol[measuredQVAnalysis.endFlowIndex], averageFlow[measuredQVAnalysis.endFlowIndex], 'o', color='yellow')
+                    plt.plot(averageVol[measuredQVAnalysis.expEndIndex], averageFlow[measuredQVAnalysis.expEndIndex], 'o', color='yellow')
+                    plt.ylabel('Flow (L/s)', fontsize=32)
+                    plt.xlabel('Volume (L)', fontsize=32)
+                    plt.title('average QV loop')
 
                     if(not np.isnan(gradients[i][-1])):
-                        uax1.plot([AminusBVolTrue[measuredQVAnalysis.expEndIndex], AminusBVolTrue[measuredQVAnalysis.maxFlwIndex]], lineFull, color='purple', linewidth=2)
-                        uax1.plot([AminusBVolTrue[measuredQVAnalysis.expEndIndex], AminusBVolTrue[measuredQVAnalysis.maxFlwIndex]], lineFullEnd, color='purple', linewidth=2)
+                        uax1.plot([newAminusBVol[measuredQVAnalysis.expEndIndex], newAminusBVol[measuredQVAnalysis.maxFlwIndex]], lineFull, color='purple', linewidth=2)
+                        uax1.plot([newAminusBVol[measuredQVAnalysis.expEndIndex], newAminusBVol[measuredQVAnalysis.maxFlwIndex]], lineFullEnd, color='purple', linewidth=2)
 
                     uax1.set_ylabel('Flow', fontsize=30)
                     uax1.set_xlabel('Volume', fontsize=30)
@@ -894,9 +878,9 @@ for DATASET in dataNums:
 
 
                     # flow and pressure plots
-                    gax1.plot(averageFlow[:len(fileBreaths.flw)], color='purple', linewidth=1.5)
-                    gax1.plot(fileBreaths.flw, color='red', linewidth=3)
-                    gax1.plot(AminusBTrue, color='black', linewidth=3)
+                    gax1.plot(averageFlow[:len(fileBreaths.flw)], color='purple', linewidth=1.5, label='Avgerage tidal')
+                    gax1.plot(fileBreaths.flw, color='red', linewidth=3, label='During shuttering')
+                    gax1.plot(AminusBTrue, '--', color='black', linewidth=3, label='Induced by shutter')
 
                     gax1.plot(measuredQVAnalysis.maxFlwIndex, fileBreaths.flw[measuredQVAnalysis.maxFlwIndex], 'o', color='yellow')
                     gax1.plot(measuredQVAnalysis.endFlowIndex, fileBreaths.flw[measuredQVAnalysis.endFlowIndex], 'o', color='yellow')
@@ -904,15 +888,18 @@ for DATASET in dataNums:
 
                     gax1.grid()
                     gax1.set_ylabel('Flow', fontsize=30)
+                    gax1.legend()
 
 
                     gax2.plot(fileBreaths.pres, color='red', linewidth=3)
                     gax2.grid()
-                    gax2.set_xlabel('DP', fontsize=31)
+                    gax2.set_xlabel('Datapoint', fontsize=30)
                     gax2.set_ylabel('Pressure', fontsize=30)
 
 
                     plt.show()
+                    g.show()
+                    u.show()
                     plt.rc('legend',**{'fontsize':12})
                     g, (gax1, gax2) = plt.subplots(2, sharex=True)
                     u, (uax1) = plt.subplots(1)
@@ -930,14 +917,40 @@ for DATASET in dataNums:
         measuredMechanics.flows.append(list(allAverageFlow))
 
 
+#        if(STACKSHUTTER):
+#            # for aceh test want to look at all the shutters
+#            # have average flow and the shutter pressure for each shutter
+#            average_pressure = averagePressures.averageData()
+#
+#            plt.figure(101)
+#            plt.plot(average_pressure)
+#
+#            # Quick least squares between average pressure and average flow
+#            # No good because of viscoelastic effect
+#            for e in range(len(allShutterPressure)):
+#               Pav = allShutterPressure[e]
+#
+#               flatStart = find_first_index_above_value(Pav, 0, 0.8*max(Pav))
+#               flatEnd = Pav.index(max(Pav))
+#
+#               Pav = allShutterPressure[e][flatStart:flatEnd]
+#               Fav = allShutterFlw[e][flatStart:flatEnd]
+#
+#              # plt.plot(allShutterPressure[e])
+#              # plt.plot(range(flatStart,flatEnd), Pav)
+#
+#               dependent = np.array([Pav])
+#               independent = np.array([Fav])
+#               res = lstsq(independent.T, dependent.T)
+#               gradient = res[0][0][0]
+#               print(gradient)
+
+
         # Tidy up :D
         averagePressures.clean()
         allAverageFlow = []
 
 
-
-    if(1):
-        fourierPlot(allFourier, 1/FS, printID)
 
 
     #=============================================================
@@ -945,7 +958,131 @@ for DATASET in dataNums:
     #=============================================================
     # Final analysis
     measuredMechanics.Rxs = dataInfo.xLabels
+    #measuredMechanics.calcREFF()
 
+
+    def extractRxArrays(allArray, allRx):
+
+        Rxarray = [0, 0.4, 0.8, 1.2]
+        arrayNone = []
+        array12_5 = []
+        array10_5 = []
+        array9_5 = []
+        for index in range(len(allArray)):
+            if allRx[index] == Rxarray[0]:
+                arrayNone.append(allArray[index])
+            elif allRx[index] == Rxarray[1]:
+                array12_5.append(allArray[index])
+            elif allRx[index] == Rxarray[2]:
+                array10_5.append(allArray[index])
+            elif allRx[index] == Rxarray[3]:
+                array9_5.append(allArray[index])
+        return ([arrayNone, array12_5, array10_5, array9_5])
+
+
+
+    gradsFullNone, gradsFull12_5, gradsFull10_5, gradsFull9_5 = extractRxArrays(allGradients, allRx)
+    RoccArray = extractRxArrays(allRocc, allRx)
+    volArray = extractRxArrays(allShutterVolume, allRx)
+    pressureArray = extractRxArrays(allEndShutterPressure, allRx)
+
+    gradsNone = []
+    grads12_5 = []
+    grads10_5 = []
+    grads9_5 = []
+    gradArray = [gradsNone, grads12_5, grads10_5, grads9_5]
+
+
+    j = 0
+    start = 0
+    for grad in [gradsFullNone, gradsFull12_5, gradsFull10_5, gradsFull9_5]:
+        end = len(grad)+start
+        outlierIndices = identifyOutliers(grad, 1.5)
+        print(outlierIndices)
+
+        #calc mean wo outliers
+        for thing in np.delete(grad, outlierIndices):
+            gradArray[j].append(thing)
+
+        volArray[j] = np.delete(volArray[j], outlierIndices).tolist()
+        pressureArray[j] = np.delete(pressureArray[j], outlierIndices).tolist()
+
+        j += 1
+
+
+
+    RNone = [0 for x in range(len(gradsNone))]
+    R12_5 = [0 for x in range(len(grads12_5))]
+    R10_5 = [0 for x in range(len(grads10_5))]
+    R9_5 = [0 for x in range(len(grads9_5))]
+    ENone = [0 for x in range(len(gradsNone))]
+    E12_5 = [0 for x in range(len(grads12_5))]
+    E10_5 = [0 for x in range(len(grads10_5))]
+    E9_5 = [0 for x in range(len(grads9_5))]
+    RArray = [RNone, R12_5, R10_5, R9_5]
+    EArray = [ENone, E12_5, E10_5, E9_5]
+
+    j = 0
+    for grad in gradArray:
+        divTau = [0 for x in range(len(grad))]
+        divVol = [0 for x in range(len(grad))]
+        for k in range(len(grad)):
+            divTau[k] = grad[k]/(pressureArray[j][k])
+            divVol[k] = 1/volArray[j][k]
+
+        # E and R estimates
+        Rd = [0 for x in range(len(grad))]
+        Ed = [0 for x in range(len(grad))]
+        for k in range(len(grad)):
+            Rd[k] = 1/(volArray[j][k]*divTau[k])
+            Ed[k] = grad[k]*(Rd[k])
+        RArray[j] = Rd
+        EArray[j] = Ed
+        j += 1
+
+#    # for plotting all E vs all P0 for all subjects
+#    for j in range(len(EArray)):
+#        for v in (EArray[j][:]):
+#            megaE.append(v)
+
+
+
+
+
+    # Final table row printouts
+    def MeansAndSTDevs(data):
+        res = [[0]*2 for j in range(4)]
+        j = 0
+        for grad in data:
+            mean = np.nanmean(grad)
+            std = np.nanstd(grad)
+            res[j][0] = mean
+            res[j][1] = std
+
+            j+=1
+        return res
+
+
+    # Tau: for all Rx, tau mean +/- std
+    # where mean and std ignore outliers (values > 3*std)
+    if(1):
+        res = MeansAndSTDevs([gradsNone, grads12_5, grads10_5, grads9_5])
+        print('Tau data')
+        print(' & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] \ \ '.format(res[0][0], res[0][1], res[1][0], res[1][1], res[2][0], res[2][1], res[3][0], res[3][1] ))
+
+    # for mechanics
+    if(1):
+        res = MeansAndSTDevs(RArray)
+        print('R data')
+        print(' & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] \ \ '.format(res[0][0], res[0][1], res[1][0], res[1][1], res[2][0], res[2][1], res[3][0], res[3][1] ))
+
+        res = MeansAndSTDevs(EArray)
+        print('E data')
+        print(' & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] \ \ '.format(res[0][0], res[0][1], res[1][0], res[1][1], res[2][0], res[2][1], res[3][0], res[3][1] ))
+
+        res = MeansAndSTDevs(RoccArray)
+        print('Rocc data')
+        print(' & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] & {:.2f} [{:.2f}] \ \ '.format(res[0][0], res[0][1], res[1][0], res[1][1], res[2][0], res[2][1], res[3][0], res[3][1] ))
 
 
     #==========
@@ -953,28 +1090,397 @@ for DATASET in dataNums:
     # PLOTS PLOTS PLOTS
     #==========
     #==========
+    # Here looking at time-wise pressure 30ms after shutter
+    TimewisePressure = 0
+    if(TimewisePressure):
+        start=0
+        plt.figure()
+        plt.grid()
+
+        # shutter pressure vs time
+        for index in range(len(gradients)):
+
+            plt.xlabel('Index (5ms div)')
+            plt.ylabel('Shutter pressure')
+
+            plt.plot(allStartShutterIndex[start:start+len(gradients[index])], allStartShutterPressure[start:start+len(gradients[index])], 'o')
+            start+=len(gradients[index])-1
+
+
+        plt.show()
+
+    #==========
+    #RELAXATION GRADIENT m
+    # Looking at how relaxation gradient of shutter pressure is affected by effort
+    # (Here using peak flow as surrogate for driving effort)
+    RelaxationGradVsFlow = 0
+    if(RelaxationGradVsFlow):
+
+        rvalues = [0 for v in range(6)]
+        index = 0
+        plt.figure(301)
+        plt.ylabel('Relaxation gradient', fontsize=20)
+        plt.xlabel('Lung volume at shutter close (L)', fontsize=20)
+        plt.plot(allShutterVolume, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+
+        gradient, intercept, r_value, p_value, std_err = stats.linregress(allShutterVolume, allRelaxGrad)
+        line = [0*gradient + intercept, 2.5*gradient + intercept]
+        plt.plot([0, 2.5], line, '--', color='lightgray')
+        rvalues[index] = (r_value**2)
+        index += 1
+
+
+        plt.figure(303)
+        plt.ylabel('Relaxation gradient', fontsize=20)
+        plt.xlabel('Pressure 30ms after shutter start (cmH2O)', fontsize=20)
+        plt.plot(allStartShutterPressure, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+
+        gradient, intercept, r_value, p_value, std_err = stats.linregress(allStartShutterPressure, allRelaxGrad)
+        line = [0*gradient + intercept, 10*gradient + intercept]
+        plt.plot([0, 10], line, '--', color='lightgray')
+        rvalues[index] = (r_value**2)
+        index += 1
+
+
+        plt.figure(304)
+        plt.ylabel('Relaxation gradient', fontsize=20)
+        plt.xlabel('Peak pressure (cmH2O)', fontsize=20)
+        plt.plot(allEndShutterPressure, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+
+        gradient, intercept, r_value, p_value, std_err = stats.linregress(allEndShutterPressure, allRelaxGrad)
+        line = [0*gradient + intercept, 20*gradient + intercept]
+        plt.plot([0, 20], line, '--', color='lightgray')
+        rvalues[index] = (r_value**2)
+        index += 1
+
+
+#        plt.figure(305)
+#        plt.ylabel('Relaxation gradient', fontsize=20)
+#        plt.xlabel('Peak flow during shuttering (absolute, L/s)', fontsize=20)
+#        plt.plot(allPeakShutterFlow, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+#
+#        gradient, intercept, r_value, p_value, std_err = stats.linregress(allPeakShutterFlow, allRelaxGrad)
+#        line = [0*gradient + intercept, 4.5*gradient + intercept]
+#        plt.plot([0, 4.5], line, color=colours[colourIndex])
+#        print('vol: {}'.format(r_value))
+#        plt.grid()
+#
+
+#        plt.figure(306)
+#        plt.ylabel('Relaxation gradient', fontsize=20)
+#        plt.xlabel('Peak flow caused by shutter only (shutter-averageTidal)', fontsize=20)
+#        plt.plot(allPeakAminusB, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+#
+#        gradient, intercept, r_value, p_value, std_err = stats.linregress(allPeakAminusB, allRelaxGrad)
+#        line = [0*gradient + intercept, 2.5*gradient + intercept]
+#        plt.plot([0, 2.5], line, color=colours[colourIndex])
+#        print('peakQ: {}'.format(r_value))
+#        plt.grid()
+#
+
+        plt.figure(307)
+        plt.ylabel('Relaxation gradient', fontsize=20)
+        plt.xlabel('Flow decay rate', fontsize=20)
+        plt.plot(allGradients, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+
+        gradient, intercept, r_value, p_value, std_err = stats.linregress(allGradients, allRelaxGrad)
+        line = [0*gradient + intercept, -60*gradient + intercept]
+        plt.plot([0, -60], line, '--', color='lightgray')
+        rvalues[index] = (r_value**2)
+        index += 1
+
+
+        plt.figure(308)
+        plt.ylabel('Relaxation gradient', fontsize=20)
+        plt.xlabel('Elastance (cmH2O/L)', fontsize=20)
+        plt.plot(allE, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+
+        gradient, intercept, r_value, p_value, std_err = stats.linregress(allE, allRelaxGrad)
+        line = [0*gradient + intercept, 25*gradient + intercept]
+        plt.plot([0, 25], line, '--', color='lightgray')
+        rvalues[index] = (r_value**2)
+        index += 1
+
+
+        plt.figure(302)
+        plt.ylabel('Relaxation gradient', fontsize=20)
+        plt.xlabel('Rocc (cmH2Os/L)', fontsize=20)
+        plt.plot(allRocc, allRelaxGrad, ls='',marker=symbols[colourIndex], color=colours[colourIndex])
+
+        gradient, intercept, r_value, p_value, std_err = stats.linregress(allRocc, allRelaxGrad)
+        line = [0*gradient + intercept, 10*gradient + intercept]
+        plt.plot([0, 10], line, '--', color='lightgray')
+        rvalues[index] = (r_value**2)
+        index += 1
+
+        colourIndex += 1
+
+        for value in rvalues:
+            print("& {:.2f}".format(value)),
+        print(" \ \ \n")
 
     for j in range(len(allRelaxGrad)):
-        megaID.append(printID)
-        megaEend.append(allE[j])
-        megaRocc.append(allRocc[j])
-        megaEstart.append(allEstart[j])
-        megaRaws.append(allRrs[j])
         megaRelaxGrad.append(allRelaxGrad[j])
+        megaTau.append(allGradients[j])
+        megaRocc.append(allRocc[j])
+        megaE.append(allE[j])
+        megaPpk.append(allEndShutterPressure[j])
+        megaPstart.append(allStartShutterPressure[j])
+        megaVol.append(allShutterVolume[j])
 
-    outliers = identifyOutliers(allPeakPressure)
-    for index in sorted(outliers, reverse=True):
-        del allPeakPressure[index]
-    # Mean of remining points
-    megaPMax.append(np.mean(allPeakPressure))
-    allPeakPressure = []
 
-    outliers = identifyOutliers(allShutterVolume)
-    for index in sorted(outliers, reverse=True):
-        del allShutterVolume[index]
-    # Mean of remining points
-    megaVolume.append(np.mean(allShutterVolume))
-    allShutterVOlume= []
+
+    #==========
+    # Results lines for E, Rocc, Rrs
+    customLines = [Line2D([0], [0], color='k', linestyle='-', marker='o'),
+                   Line2D([0], [0], color='r', linestyle='-', marker='') ]
+
+
+    mechLines = 1
+    if(mechLines):
+        xarray = ['0', '0.4', '0.8', '1.2']
+
+        #tau
+        plt.figure(0)
+        res = MeansAndSTDevs(gradArray)
+        line = [0 for v in range(4)]
+        for index in range(4):
+            line[index] = res[index][0] # grab mean value
+        normaliser = np.copy(line[0]) # make all lines start at 0
+        for index in range(4):
+            line[index] -= normaliser
+        plt.plot(line, '-', color='grey')
+        plt.plot(line, 'o', color='black')
+        plt.xticks(range(4), xarray)
+        plt.xlabel('Added resistance (cmH2Os/L)', fontsize=30)
+        plt.ylabel('Decay rate (1/s)', fontsize=30)
+        plt.legend(customLines, ['Data'])
+
+        #E
+        plt.figure(1)
+        res = MeansAndSTDevs(EArray)
+        line = [0 for v in range(4)]
+        for index in range(4):
+            line[index] = res[index][0]
+        normaliser = np.copy(line[0])
+        for index in range(4):
+            line[index] -= normaliser
+        plt.plot(line, '-', color='grey')
+        plt.plot(line, 'o', color='black')
+        plt.xticks(range(4), xarray)
+        plt.xlabel('Added resistance (cmH2Os/L)', fontsize=30)
+        plt.ylabel('Elastance (cmH2O/L)', fontsize=30)
+        plt.legend(customLines, ['Data'])
+
+        #Rocc
+        resistLine = [0, 0.4, 0.8, 1.2]
+
+        plt.figure(2)
+        res = MeansAndSTDevs(RoccArray)
+        line = [0 for v in range(4)]
+        for index in range(4):
+            line[index] = res[index][0]
+        normaliser = np.copy(line[0])
+        for index in range(4):
+            line[index] -= normaliser
+        plt.plot(line, '-', color='grey', label='Data')
+        plt.plot(line, 'o', color='black')
+        plt.plot(resistLine, '-', color='red', label='Expected trend')
+        plt.xticks(range(4), xarray)
+        plt.xlabel('Added resistance (cmH2Os/L)', fontsize=30)
+        plt.ylabel('Rocc (cmH2Os/L)', fontsize=30)
+        plt.legend(customLines, ['Data', 'Expected trend'])
+
+        #Rrs
+        plt.figure(3)
+        res = MeansAndSTDevs(RArray)
+        line = [0 for v in range(4)]
+        for index in range(4):
+            line[index] = -res[index][0]
+        normaliser = np.copy(line[0])
+        for index in range(4):
+            line[index] -= normaliser
+        plt.plot(line, '-', color='grey', label='Data')
+        plt.plot(line, 'o', color='black')
+        plt.plot(resistLine, '-', color='red', label='Expected trend')
+        plt.xticks(range(4), xarray)
+        plt.xlabel('Added resistance (cmH2Os/L)', fontsize=30)
+        plt.ylabel('Rrs (cmH2Os/L)', fontsize=30)
+        plt.legend(customLines, ['Data', 'Expected trend'])
+
+
+
+
+
+
+    #==========
+    # Tau
+
+    tauPlots = 0
+    if(tauPlots):
+
+#        # tau vs 1/Rocc grad gives E
+#        plt.figure()
+#        plt.ylabel('Tau')
+#        plt.xlabel('1/Rocc')
+#        j = 0
+#        for grads in gradients:
+#            invGrads = [1/v for v in allRocc[j:j+len(grads)]]
+#            plt.plot(invGrads, grads,  'o')
+#            j += len(grads)
+#        plt.grid()
+
+
+        # Tau vs time (sort of, tau all plotted in order of occurrance)
+        plt.figure()
+        plt.ylabel('Decay rate')
+        plt.xlabel('Shutter repetition')
+        plt.plot(allGradients, '-o')
+        plt.grid()
+
+#        plt.figure()
+#        plt.ylabel('peakPressure')
+#        plt.xlabel('peakFlow')
+#        plt.plot(allPeakShutterFlow, allStartShutterPressure, 'o')
+#        plt.grid()
+
+#        plt.figure()
+#        plt.ylabel('peakPressure/peakFlow')
+#        plt.xlabel('Rx')
+#        for j in range(len(allRx)):
+#            Rvalue = allStartShutterPressure[j]/allPeakShutterFlow[j]
+#            plt.plot(allRx[j], Rvalue, 'o')
+#        plt.grid()
+
+
+        # boxplots
+        print('Gradients, end gradients:')
+        print(gradients)
+        print(gradientsEnd)
+
+        # boxplot tau vs test number (1-16)
+        plt.figure()
+        dataBoxy = []
+        for j in range(len(gradients)):
+            array = ([[gradients[j][v], j] for v in range(len(gradients[j]))])
+            for item in array:
+                dataBoxy.append(item)
+        df = pd.DataFrame(dataBoxy, columns=['Tau', 'Test'])
+        sns.boxplot(x='Test', y='Tau', data=df)#, 'Labels',())
+        sns.swarmplot(x='Test', y='Tau', data=df, color="grey")
+        plt.grid()
+
+
+        # tau vs Rx
+        plt.figure()
+        dataBoxy = [[allGradients[v], allRx[v]] for v in range(len(allRx))]
+        df = pd.DataFrame(dataBoxy, columns=['Decay rate', 'Rx'])
+        sns.boxplot(x='Rx', y='Decay rate', data=df)#, 'Labels',())
+        sns.swarmplot(x='Rx', y='Decay rate', data=df, color="grey")
+        plt.grid()
+
+
+        # end of shutter pressure vs Rx
+        plt.figure()
+        dataBoxy = [[allEndShutterPressure[v], allRx[v]] for v in range(len(allRx))]
+        df = pd.DataFrame(dataBoxy, columns=['Pressure (Pa)', 'Rx'])
+        sns.boxplot(x='Rx', y='Pressure (Pa)', data=df)#, 'Labels',())
+        sns.swarmplot(x='Rx', y='Pressure (Pa)', data=df, color="grey")
+        plt.grid()
+
+
+        # tau/P0 vs Rx --> should match 1/volume closely
+        plt.figure()
+        dataBoxy = []
+        for j in range(len(allGradients)):
+            item = allGradients[j]/allEndShutterPressure[j]
+            dataBoxy.append([item, allRx[j]])
+        df = pd.DataFrame(dataBoxy, columns=['Tau/P0', 'Test'])
+        sns.boxplot(x='Test', y='Tau/P0', data=df)#, 'Labels',())
+        sns.swarmplot(x='Test', y='Tau/P0', data=df, color="grey")
+        plt.grid()
+
+        # 1/volume
+        plt.figure()
+        plt.ylabel('(Tau/P0), (1/volume)')
+        plt.xlabel('Shutter repetition')
+        divTau = [0]*len(allGradients)
+        divVol = [0]*len(allGradients)
+        for j in range(len(allGradients)):
+            divTau[j] = allGradients[j]/(allEndShutterPressure[j])
+            divVol[j] = 1/allShutterVolume[j]
+        plt.plot(divTau, '-x')
+        plt.plot(divVol, '-d')
+
+
+
+        # E and R estimates
+        Rd = [0]*len(allGradients)
+        Ed = [0]*len(allGradients)
+        for j in range(len(allGradients)):
+            Rd[j] = 1/(allShutterVolume[j]*divTau[j])
+            Ed[j] = allGradients[j]*(Rd[j])
+
+        plt.rc('legend',**{'fontsize':12})
+        c, (cax1, cax2) = plt.subplots(2, sharex=True)
+#        cax1.plot(Rd, '-og')
+#        cax2.plot(Ed, '-dr')
+#
+#        cax2.set_xlabel('Shutter repetition', fontsize=31)
+#        cax1.set_ylabel('Estimates from Tau: (R, green)', fontsize=30)
+#        cax2.set_ylabel('Estimates from Tau: (Ed, red)', fontsize=30)
+        cax1.grid()
+        cax2.grid()
+
+
+        dataBoxy = [[Rd[v], allRx[v]] for v in range(len(allRx))]
+        df = pd.DataFrame(dataBoxy, columns=['R', 'Rx'])
+        sns.boxplot(x='Rx', y='R', data=df, ax=cax1)
+        sns.swarmplot(x='Rx', y='R', data=df, color="grey", ax=cax1)
+
+        dataBoxy = [[Ed[v], allRx[v]] for v in range(len(allRx))]
+        df = pd.DataFrame(dataBoxy, columns=['E', 'Rx'])
+        sns.boxplot(x='Rx', y='E', data=df, ax=cax2)
+        sns.swarmplot(x='Rx', y='E', data=df, color="grey", ax=cax2)
+
+
+        # end of shutter pressure vs Rx
+        plt.figure()
+        dataBoxy = [[allRocc[v], allRx[v]] for v in range(len(allRx))]
+        df = pd.DataFrame(dataBoxy, columns=['Rocc', 'Rx'])
+        sns.boxplot(x='Rx', y='Rocc', data=df)#, 'Labels',())
+        sns.swarmplot(x='Rx', y='Rocc', data=df, color="grey")
+        plt.grid()
+
+
+
+        plt.show()
+
+        #==========
+        # Edrs
+    EdrsPlots = 0
+    if(EdrsPlots):
+
+
+
+        # Edrs vs shutter test
+
+
+        j = 0
+        for grads in gradients:
+            plt.figure()
+            plt.ylabel('Edrs (o b=decay r=end), Rocc (x)')
+            plt.xlabel('Shutter repetition')
+            Edrs = [grads[v]*allRocc[j:j+len(grads)][v] for v in range(len(grads))]
+            EdrsEnd = [allGradientsEnd[j:j+len(grads)][v]*allRocc[j:j+len(grads)][v] for v in range(len(grads))]
+            Roccs = [allRocc[j:j+len(grads)][v] for v in range(len(grads))]
+            plt.plot(Edrs, '-ob')
+            plt.plot(EdrsEnd, '-or')
+            plt.plot(Roccs, '-x')
+            j += len(grads)
+
+            plt.grid()
+
 
 
 
@@ -982,137 +1488,112 @@ for DATASET in dataNums:
 #=============================================================
 # Final printouts for all datasets
 
-
-rvalues = [0 for thing in range(5)]
-mvalues = [0 for thing in range(5)]
-index = 0
-sns.set(font_scale=2.5)
-
-# Rocc
-plt.figure(301)
-dataBoxy = [[megaRocc[v], megaID[v]] for v in range(len(megaID))]
-df = pd.DataFrame(dataBoxy, columns=['Rocc', 'ID'])
-sns.boxplot(x='ID', y='Rocc', data=df, fliersize=7)#, 'Labels',())
-sns.swarmplot(x='ID', y='Rocc', data=df, color="grey")
-plt.grid()
+# Table of Rocc vs Rx
+# With mean and std
+if(GenRoccTable):
+    for line in range(len(tableIDs)):
+        info = str(tableIDs[line])
+        info += ', '
+        for index in range(4):
+            info += '{:.2f} [{:.2f}] (expect {:.2f} error {:.1f}%), '.format(RoccMeans[4*line+index], RoccStds[4*line+index], RoccExpected[4*line+index], RoccError[4*line+index])
+        print(info)
 
 
-# E shutter close
-plt.figure(302)
-dataBoxy = [[megaEstart[v], megaID[v]] for v in range(len(megaID))]
-df = pd.DataFrame(dataBoxy, columns=['E(shutter-close)', 'ID'])
-sns.boxplot(x='ID', y='E(shutter-close)', data=df)#, 'Labels',())
-sns.swarmplot(x='ID', y='E(shutter-close)', data=df, color="grey")
-plt.grid()
+
+# linear regression for relaxation gradients
+if(RelaxationGradVsFlow):
+    rvalues = [0 for v in range(6)]
+    mvalues = [0 for v in range(6)]
+    index = 0
+    #S13_patch = mpatches.Patch(color='purple', marker='d', label='Subject 13')
+
+    S13_patch = [Line2D([0], [0], color='purple', linestyle='', marker='d')]
+
+    plt.figure(301)
+    gradient, intercept, r_value, p_value, std_err = stats.linregress(megaVol, megaRelaxGrad)
+    line = [0*gradient + intercept, 2.5*gradient + intercept]
+    plt.plot([0, 2.5], line, color='red', linewidth=3)
+    rvalues[index] = (r_value**2)
+    mvalues[index] = (gradient)
+    index += 1
+    plt.legend(S13_patch, ["Subject 13"])
+    plt.grid()
 
 
-# E shutter open
-plt.figure(303)
-dataBoxy = [[megaEend[v], megaID[v]] for v in range(len(megaID))]
-df = pd.DataFrame(dataBoxy, columns=['Ed', 'ID'])
-sns.boxplot(x='ID', y='Ed', data=df, fliersize=7)#, 'Labels',())
-sns.swarmplot(x='ID', y='Ed', data=df, color="grey")
-plt.grid()
+    plt.figure(303)
+    gradient, intercept, r_value, p_value, std_err = stats.linregress(megaPstart, megaRelaxGrad)
+    line = [0*gradient + intercept, 10*gradient + intercept]
+    plt.plot([0, 10], line, color='red', linewidth=3)
+    rvalues[index] = (r_value**2)
+    mvalues[index] = (gradient)
+    index += 1
+    plt.legend(S13_patch, ["Subject 13"])
+    plt.grid()
 
 
-# Rrs from decay
-plt.figure(304)
-dataBoxy = [[megaRaws[v], megaID[v]] for v in range(len(megaID))]
-df = pd.DataFrame(dataBoxy, columns=['Rrs', 'ID'])
-sns.boxplot(x='ID', y='Rrs', data=df)#, 'Labels',())
-sns.swarmplot(x='ID', y='Rrs', data=df, color="grey")
-plt.grid()
+    plt.figure(304)
+    gradient, intercept, r_value, p_value, std_err = stats.linregress(megaPpk, megaRelaxGrad)
+    line = [0*gradient + intercept, 20*gradient + intercept]
+    plt.plot([0, 20], line, color='red', linewidth=3)
+    rvalues[index] = (r_value**2)
+    mvalues[index] = (gradient)
+    index += 1
+    plt.legend(S13_patch, ["Subject 13"])
+    plt.grid()
 
 
-# relaxation gradient
-plt.figure(305)
-dataBoxy = [[megaRelaxGrad[v], megaID[v]] for v in range(len(megaID))]
-df = pd.DataFrame(dataBoxy, columns=['Relaxation gradient', 'ID'])
-sns.boxplot(x='ID', y='Relaxation gradient', data=df, fliersize=7)#, 'Labels',())
-sns.swarmplot(x='ID', y='Relaxation gradient', data=df, color="grey")
-plt.grid()
+    plt.figure(307)
+
+    mask = ~np.isnan(megaTau)
+    megaTauMask = np.array(megaTau)[mask]
+    megaRelaxGradMask = np.array(megaRelaxGrad)[mask]
+
+    gradient, intercept, r_value, p_value, std_err = stats.linregress(megaTauMask, megaRelaxGradMask)
+    line = [0*gradient + intercept, -60*gradient + intercept]
+    plt.plot([0, -60], line, color='red', linewidth=3)
+    rvalues[index] = (r_value**2)
+    mvalues[index] = (gradient)
+    index += 1
+    plt.legend(S13_patch, ["Subject 13"])
+    plt.grid()
+    #plt.show()
 
 
-# change in elastance vs change in resistsnce plot
-# To assess whether two parameters are linked
-def extractMeanMechanic(ID, megaID, mixedArray):
-    Hold = []
-    for item in range(len(megaID)):
-        if megaID[item] == ID:
-            Hold.append(mixedArray[item])
-    # Find outliers and remove
-    outliers = identifyOutliers(Hold)
-    print(outliers)
-    for index in sorted(outliers, reverse=True):
-        del Hold[index]
-    # Mean of remining points
-    Holdmean = np.mean(Hold)
-    return Hold
+    plt.figure(308)
+
+    mask = ~np.isnan(megaE)
+    megaEMask = np.array(megaE)[mask]
+    megaRelaxGradMask = np.array(megaRelaxGrad)[mask]
+
+    gradient, intercept, r_value, p_value, std_err = stats.linregress(megaEMask, megaRelaxGradMask)
+    line = [0*gradient + intercept, 25*gradient + intercept]
+    plt.plot([0, 25], line, color='red', linewidth=3)
+    rvalues[index] = (r_value**2)
+    mvalues[index] = (gradient)
+    index += 1
+    plt.legend(S13_patch, ["Subject 13"])
+    plt.grid()
 
 
-increasesInE = [0 for hh in range(len(printNames)/2)]
-increasesInR = [0 for hh in range(len(printNames)/2)]
-increasesInM = [0 for hh in range(len(printNames)/2)]
-indexer = 0
-while indexer < len(printNames):
-    # always nohold first
-    name = printNames[indexer]
-    # Mean of remining points
-    noholdE= extractMeanMechanic(name, megaID, megaEend)
-    noholdR= extractMeanMechanic(name, megaID, megaRocc)
-    noholdM= extractMeanMechanic(name, megaID, megaRelaxGrad)
+    plt.figure(302)
+    gradient, intercept, r_value, p_value, std_err = stats.linregress(megaRocc, megaRelaxGrad)
+    line = [0*gradient + intercept, 10*gradient + intercept]
+    plt.plot([0, 10], line, color='red', linewidth=3)
+    rvalues[index] = (r_value**2)
+    mvalues[index] = (gradient)
+    index += 1
+    plt.legend(S13_patch, ["Subject 13"])
+    plt.grid()
 
-    noholdEmean = np.mean(noholdE)
-    noholdRmean = np.mean(noholdR)
-    noholdMmean = np.mean(noholdM)
+    print("overall regression R2value")
+    for value in rvalues:
+        print("& {:.2f}".format(value)),
+    print(" \ \ \n")
 
+    print("overall regression gradient")
+    for value in mvalues:
+        print("& {:.2f}".format(value)),
+    print(" \ \ \n")
 
-    # now with holding
-    indexer += 1
-    name = printNames[indexer]
-
-    holdE = extractMeanMechanic(name, megaID, megaEend)
-    holdR = extractMeanMechanic(name, megaID, megaRocc)
-    holdM = extractMeanMechanic(name, megaID, megaRelaxGrad)
-
-    holdEmean = np.mean(holdE)
-    holdRmean = np.mean(holdR)
-    holdMmean = np.mean(holdM)
-
-    # Compare amount increase from non-ch to ch
-    EincreasePercent = ((holdEmean-noholdEmean)/noholdEmean)*100
-    RincreasePercent = ((holdRmean-noholdRmean)/noholdRmean)*100
-    MincreasePercent = ((holdMmean-noholdMmean)/noholdMmean)*100
-
-
-    #store results
-    increasesInE[(indexer-1)/2] = EincreasePercent
-    increasesInR[(indexer-1)/2] = RincreasePercent
-    increasesInM[(indexer-1)/2] = MincreasePercent
-    indexer += 1
-
-# print and plot
-print(increasesInE)
-print(increasesInR)
-print(increasesInM)
-print(megaPMax)
-print(megaVolume)
-
-d = {'Elastance':increasesInE, 'Resistance':increasesInR, 'Viscoelastic':increasesInM}
-df = pd.DataFrame(data=d)
-corr = df.corr()
-print(corr)
-
-print('p values:')
-print('E vs R: {}'.format(stats.pearsonr(df['Elastance'], df['Resistance'])[1]))
-print('E vs V: {}'.format(stats.pearsonr(df['Elastance'], df['Viscoelastic'])[1]))
-print('R vs V: {}'.format(stats.pearsonr(df['Resistance'], df['Viscoelastic'])[1]))
-
-if (len(dataNums)>=6):
-    g = sns.PairGrid(df)
-    g.map_upper(plt.scatter)
-    g.map_lower(sns.kdeplot)
-    g.map_diag(sns.kdeplot, lw=3, legend=False)
 
 plt.show()
-

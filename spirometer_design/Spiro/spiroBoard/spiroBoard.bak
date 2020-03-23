@@ -1,0 +1,268 @@
+EESchema Schematic File Version 4
+LIBS:spiroBoard-cache
+EELAYER 26 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title "Solenoid"
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L Device:R R3_sol1
+U 1 1 5C591A1E
+P 8150 3400
+F 0 "R3_sol1" H 8220 3446 50  0000 L CNN
+F 1 "4.0" V 8150 3300 50  0000 L CNN
+F 2 "SpiroParts:PWR221T-30-RESISTOR" V 8080 3400 50  0001 C CNN
+F 3 "~" H 8150 3400 50  0001 C CNN
+	1    8150 3400
+	1    0    0    -1  
+$EndComp
+Wire Notes Line
+	6050 5050 6050 1900
+Wire Notes Line
+	9000 5050 6050 5050
+Wire Notes Line
+	9000 1900 9000 5050
+Wire Notes Line
+	6050 1900 9000 1900
+$Comp
+L Device:D D1_sol1
+U 1 1 5C5206E3
+P 7550 2250
+F 0 "D1_sol1" V 7504 2329 50  0000 L CNN
+F 1 "3A 100V" V 7595 2329 50  0000 L CNN
+F 2 "Diode_SMD:D_SOD-123F" H 7550 2250 50  0001 C CNN
+F 3 "~" H 7550 2250 50  0001 C CNN
+	1    7550 2250
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:D D2_sol1
+U 1 1 5C51F58C
+P 7550 2550
+F 0 "D2_sol1" V 7504 2629 50  0000 L CNN
+F 1 "3A 100V" V 7595 2629 50  0000 L CNN
+F 2 "Diode_SMD:D_SOD-123F" H 7550 2550 50  0001 C CNN
+F 3 "~" H 7550 2550 50  0001 C CNN
+	1    7550 2550
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	6700 2100 7550 2100
+Wire Wire Line
+	6700 2100 6550 2100
+Connection ~ 6700 2100
+Wire Wire Line
+	6700 2100 6700 2450
+Wire Wire Line
+	7550 2750 7550 2700
+Wire Wire Line
+	8150 2750 7550 2750
+Wire Wire Line
+	6350 3750 6350 4100
+$Comp
+L Device:D D3_sol1
+U 1 1 5C51ABC3
+P 6350 3600
+F 0 "D3_sol1" V 6396 3521 50  0000 R CNN
+F 1 "3A 100V" V 6305 3521 50  0000 R CNN
+F 2 "Diode_SMD:D_SOD-123F" H 6350 3600 50  0001 C CNN
+F 3 "~" H 6350 3600 50  0001 C CNN
+	1    6350 3600
+	0    -1   -1   0   
+$EndComp
+Connection ~ 8150 2750
+$Comp
+L Device:L Solenoid1
+U 1 1 5C51A457
+P 8150 2300
+F 0 "Solenoid1" H 8203 2346 50  0000 L CNN
+F 1 "5VDC 8.2W 3.2Ohm" H 8203 2255 50  0000 L CNN
+F 2 "SpiroParts:DSOL-0630-05E-SOLENOID" H 8150 2300 50  0001 C CNN
+F 3 "~" H 8150 2300 50  0001 C CNN
+	1    8150 2300
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	8150 3250 8150 3050
+Wire Wire Line
+	8150 2750 8150 3050
+Connection ~ 8150 3050
+Wire Wire Line
+	8150 3050 7550 3050
+Wire Wire Line
+	8150 3850 8150 4100
+Wire Wire Line
+	8150 4100 8150 4350
+Connection ~ 8150 4100
+Wire Wire Line
+	7550 4100 8150 4100
+Wire Wire Line
+	7550 4100 7550 3800
+Connection ~ 7550 4100
+Wire Wire Line
+	6350 4100 7550 4100
+Wire Wire Line
+	7550 3050 7550 3500
+Connection ~ 7550 3050
+Wire Wire Line
+	7400 3050 7550 3050
+$Comp
+L Device:R R5_sol1
+U 1 1 5C518095
+P 8150 3700
+F 0 "R5_sol1" H 8220 3746 50  0000 L CNN
+F 1 "0.43" V 8150 3600 50  0000 L CNN
+F 2 "SpiroParts:Resistor 2512 (6432 Metric)" V 8080 3700 50  0001 C CNN
+F 3 "~" H 8150 3700 50  0001 C CNN
+	1    8150 3700
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C1_sol1
+U 1 1 5C518019
+P 7550 3650
+F 0 "C1_sol1" H 7665 3696 50  0000 L CNN
+F 1 "4.7mF" H 7665 3605 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0603_1608Metric" H 7588 3500 50  0001 C CNN
+F 3 "~" H 7550 3650 50  0001 C CNN
+	1    7550 3650
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6350 3050 6500 3050
+Wire Wire Line
+	6350 3450 6350 3050
+Wire Wire Line
+	6900 3050 7100 3050
+$Comp
+L Device:Q_PMOS_GSD PMOS1
+U 1 1 5C51797E
+P 6700 2950
+F 0 "PMOS1" V 6950 2950 50  0000 C CNN
+F 1 "RQ5E035ATTCL " V 7041 2950 50  0000 C CNN
+F 2 "SpiroParts:TSMT3-SC-96-PMOS" H 6900 3050 50  0001 C CNN
+F 3 "~" H 6700 2950 50  0001 C CNN
+	1    6700 2950
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R R2_sol1
+U 1 1 5C510943
+P 7250 3050
+F 0 "R2_sol1" V 7150 2900 50  0000 L CNN
+F 1 "22" V 7250 3000 50  0000 L CNN
+F 2 "SpiroParts:Resistor 2512 (6432 Metric)" V 7180 3050 50  0001 C CNN
+F 3 "~" H 7250 3050 50  0001 C CNN
+	1    7250 3050
+	0    -1   -1   0   
+$EndComp
+$Comp
+L Device:R R1_sol1
+U 1 1 5C51066F
+P 6700 2600
+F 0 "R1_sol1" H 6770 2646 50  0000 L CNN
+F 1 "22" V 6700 2550 50  0000 L CNN
+F 2 "Resistor_SMD:R_0603_1608Metric" V 6630 2600 50  0001 C CNN
+F 3 "~" H 6700 2600 50  0001 C CNN
+	1    6700 2600
+	1    0    0    -1  
+$EndComp
+Text Label 6550 2100 2    50   ~ 0
+Vin
+Connection ~ 7550 2100
+Wire Wire Line
+	7550 2100 8150 2100
+Text Label 4450 2500 2    50   ~ 0
+Vin
+Text Label 4450 2600 2    50   ~ 0
+GND
+Text Label 8150 4350 3    50   ~ 0
+GND
+$Comp
+L Connector:Screw_Terminal_01x02 J1
+U 1 1 5C594319
+P 4650 2500
+F 0 "J1" H 4730 2492 50  0000 L CNN
+F 1 "Screw_Terminal_01x02" H 4730 2401 50  0000 L CNN
+F 2 "TerminalBlock_Phoenix:TerminalBlock_Phoenix_PT-1,5-2-5.0-H_1x02_P5.00mm_Horizontal" H 4650 2500 50  0001 C CNN
+F 3 "~" H 4650 2500 50  0001 C CNN
+	1    4650 2500
+	1    0    0    -1  
+$EndComp
+Text Label 4450 3300 2    50   ~ 0
+solenoid+
+Text Label 4450 3400 2    50   ~ 0
+solenoid-
+$Comp
+L Connector:Screw_Terminal_01x02 J2
+U 1 1 5C5CDA9D
+P 4650 3300
+F 0 "J2" H 4730 3292 50  0000 L CNN
+F 1 "Screw_Terminal_01x02" H 4730 3201 50  0000 L CNN
+F 2 "TerminalBlock_Phoenix:TerminalBlock_Phoenix_PT-1,5-2-5.0-H_1x02_P5.00mm_Horizontal" H 4650 3300 50  0001 C CNN
+F 3 "~" H 4650 3300 50  0001 C CNN
+	1    4650 3300
+	1    0    0    -1  
+$EndComp
+Text Label 8150 2500 0    50   ~ 0
+solenoid-
+Text Label 8150 2100 0    50   ~ 0
+solenoid+
+Wire Wire Line
+	8150 2100 8150 2150
+Wire Wire Line
+	8150 2450 8150 2750
+$Comp
+L Mechanical:MountingHole H1
+U 1 1 5C64CD4E
+P 4350 4150
+F 0 "H1" H 4450 4196 50  0000 L CNN
+F 1 "MountingHole" H 4450 4105 50  0000 L CNN
+F 2 "" H 4350 4150 50  0001 C CNN
+F 3 "~" H 4350 4150 50  0001 C CNN
+	1    4350 4150
+	1    0    0    -1  
+$EndComp
+$Comp
+L Mechanical:MountingHole H2
+U 1 1 5C64CDC3
+P 5250 4200
+F 0 "H2" H 5350 4246 50  0000 L CNN
+F 1 "MountingHole" H 5350 4155 50  0000 L CNN
+F 2 "" H 5250 4200 50  0001 C CNN
+F 3 "~" H 5250 4200 50  0001 C CNN
+	1    5250 4200
+	1    0    0    -1  
+$EndComp
+$Comp
+L Mechanical:MountingHole H3
+U 1 1 5C64CE25
+P 4300 4600
+F 0 "H3" H 4400 4646 50  0000 L CNN
+F 1 "MountingHole" H 4400 4555 50  0000 L CNN
+F 2 "" H 4300 4600 50  0001 C CNN
+F 3 "~" H 4300 4600 50  0001 C CNN
+	1    4300 4600
+	1    0    0    -1  
+$EndComp
+$Comp
+L Mechanical:MountingHole H4
+U 1 1 5C64CE96
+P 5250 4600
+F 0 "H4" H 5350 4646 50  0000 L CNN
+F 1 "MountingHole" H 5350 4555 50  0000 L CNN
+F 2 "" H 5250 4600 50  0001 C CNN
+F 3 "~" H 5250 4600 50  0001 C CNN
+	1    5250 4600
+	1    0    0    -1  
+$EndComp
+$EndSCHEMATC

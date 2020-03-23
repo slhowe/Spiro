@@ -1,0 +1,42 @@
+Reference, Quantity, Value, Footprint, Datasheet,Digikey BOM,Digikey ref
+C1 ,1,10n,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.co.nz/product-detail/en/yageo/CC0603KRX7R9BB103/311-1085-1-ND/302995
+C10 C14 C5 C8 C7 C15 C11 ,7,100nF,Capacitor_SMD:C_0603_1608Metric,~,x,https://www.digikey.com/product-detail/en/kemet/C0603C104Z3VACTU/399-1100-1-ND/411375
+C12 C13 ,2,22pF,Capacitor_SMD:C_0603_1608Metric,~,x,https://www.digikey.com/product-detail/en/avx-corporation/06035A220JAT2A/478-1167-1-ND/564199
+C2 ,1,10uF,Capacitor_SMD:C_0603_1608Metric,~,x,https://www.digikey.com/product-detail/en/samsung-electro-mechanics/CL10A106MQ8NNNC/1276-1119-1-ND/3889205
+C4 C3 ,2,1uF,Capacitor_SMD:C_0603_1608Metric,~,x,https://www.digikey.com/product-detail/en/samsung-electro-mechanics/CL10A105MP8NNNC/1276-1866-1-ND/3889952
+C6 ,1,10nF,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,Same as C1
+C9 ,1,22uF,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.com/product-detail/en/murata-electronics/GRM188R60J226MEA0D/490-7611-1-ND/4280544
+Csuper2 Csuper1 ,2,1F,SpiroParts:SCMR18H105PRBB0-SuperCap1F,~,x,https://www.digikey.com/product-detail/en/avx-corporation/SCMR18H105PRBB0/478-11307-ND/7595423
+D1 ,1,3A 100V 0.4dV,Diode_SMD:D_SOD-123F,~,x,https://www.digikey.co.nz/product-detail/en/micro-commercial-co/SL14PL-TP/SL14PL-TPMSCT-ND/7681629
+D2 ,1,D_Schottky,Diode_SMD:D_SOD-123,~,x,https://www.digikey.com/product-detail/en/diodes-incorporated/1N5819HW-7-F/1N5819HW-FDICT-ND/815283
+D4 D3 ,2,LED,LED_SMD:LED_0603_1608Metric,~,x,https://www.digikey.com/product-detail/en/rohm-semiconductor/SML-D12U1WT86/SML-D12U1WT86CT-ND/5843858
+FB1 FB2 ,2,Ferrite_Bead,Resistor_SMD:R_0402_1005Metric,~,x,https://www.digikey.com/product-detail/en/murata-electronics/BLM15AG100SN1D/490-5176-1-ND/1948352
+H2 H1 H3 H4 ,4,MountingHole,MountingHole:MountingHole_3.2mm_M3,~,x,Built into board
+J1 ,1,Barrel_Jack_Switch,Connector_BarrelJack:BarrelJack_Wuerth_6941xx301002,~,x,https://www.digikey.com/product-detail/en/mpd-memory-protection-devices/EJ508A/EJ508A-ND/2439547
+J2 ,1,USB_B_Mini,Connector_USB:USB_Mini-B_Lumberg_2486_01_Horizontal,~,x,https://www.digikey.com/product-detail/en/amphenol-icc-fci/10033526-N3212LF/609-4700-1-ND/4292063
+J3 ,1,Screw_Terminal_01x02,"TerminalBlock_Phoenix:TerminalBlock_Phoenix_PT-1,5-2-5.0-H_1x02_P5.00mm_Horizontal",~,x,https://www.digikey.com/product-detail/en/phoenix-contact/1935161/277-1667-ND/568614
+J4 ,1,Conn_01x18_Female,Connector_PinHeader_2.54mm:PinHeader_1x18_P2.54mm_Vertical,~,x,Leave for now
+J5 ,1,Conn_02x03_Odd_Even,Connector_PinHeader_2.54mm:PinHeader_2x03_P2.54mm_Vertical,~,x,https://www.digikey.com/product-detail/en/wurth-electronics-inc/61300311121/732-5316-ND/4846825
+JP1 ,1,Jumper_2_Bridged,Jumper:SolderJumper-2_P1.3mm_Bridged_Pad1.0x1.5mm,~,x,Component built into solder mask
+L1 ,1,L_Core_Iron,SpiroParts:PA4334.273NLT,~,x,https://www.digikey.com/product-detail/en/pulse-electronics-power/PA4334.273NLT/553-3507-1-ND/6139062
+NMOS1 ,1,2N7002,Package_TO_SOT_SMD:SOT-23,https://www.fairchildsemi.com/datasheets/2N/2N7002.pdf,x,"https://www.digikey.com/product-detail/en/toshiba-semiconductor-and-storage/SSM3K345R,LF/SSM3K345RLFCT-ND/7394092"
+PSH1 ,1,ASDXRRX001PDAA5,SpiroParts:ASDXRRX001PDAA5-PressureSensor,,x,https://www.digikey.com/product-detail/en/honeywell-sensing-and-productivity-solutions/ASDXRRX005PDAA5/480-3293-ND/2061076
+PSL1 ,1,SSCSNBN001NDAA5,SpiroParts:SSCSNBN001NDAA5,,x,https://www.digikey.com/product-detail/en/honeywell-sensing-and-productivity-solutions/SSCSNBN001NDAA5/480-3772-ND/2785813
+R1 ,1,0.067,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.com/product-detail/en/te-connectivity-passive-product/RLP73N2BR062FTDF/A109640CT-ND/4032406
+R11 ,1,220,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.co.nz/product-detail/en/panasonic-electronic-components/ERJ-PA3F2200V/P220BYCT-ND/5036154
+R12 ,1,10K,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.co.nz/product-detail/en/samsung-electro-mechanics/RC0603F103CS/1276-3670-1-ND/3966642
+R2 R10 R9 ,3,1K,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.com/product-detail/en/rohm-semiconductor/ESR03EZPJ102/RHM1.0KDCT-ND/1762924
+R3 R5 ,2,8,Package_TO_SOT_THT:TO-220-2_Horizontal_TabDown,~,x,https://www.digikey.com/product-detail/en/bourns-inc/PWR221T-30-8R20F/PWR221T-30-8R20F-ND/2360934
+R4 ,1,160,Resistor_SMD:R_1206x3216,~,x,https://www.digikey.co.nz/product-detail/en/stackpole-electronics-inc/RMCF1206FT160R/RMCF1206FT160RCT-ND/7906837
+R6 ,1,300,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.co.nz/product-detail/en/vishay-beyschlag/MCT06030C3000FP500/749-1759-1-ND/7348067
+R8 R7 ,2,22,Resistor_SMD:R_0603_1608Metric,~,x,https://www.digikey.com/product-detail/en/te-connectivity-passive-product/CRGCQ0603F22R/A129668CT-ND/8577500
+RL1 ,1,250k,Resistor_SMD:R_0603_1608Metric_Pad1.05x0.95mm_HandSolder,~,x,https://www.digikey.co.nz/product-detail/en/yageo/RC0201FR-07249KL/YAG2335CT-ND/5281201
+SW1 ,1,SW_Push_Open,SpiroParts:Slide_Switch_SPST_Through_Hole,~,x,https://www.digikey.com/product-detail/en/c-k/L101011MS02Q/CKC5106-ND/484142
+SW2 ,1,SW_Push,DigiKey-gitClone:Switch_Tactile_SMD_6x6mm_PTS645,~,x,https://www.digikey.com/product-detail/en/c-k/PTS645SK43SMTR92-LFS/CKN9084CT-ND/1146821
+TP1 TP2 TP3 TP4 TP5 TP6 TP0 TP7 TP9 ,9,TestPoint,SpiroParts:testPoint-2.2x1.4,~,x,https://www.digikey.com/product-detail/en/harwin-inc/S2751-46R/952-2664-1-ND/5250501
+U1 ,1,INA168,Package_TO_SOT_SMD:SOT-23-5,http://www.ti.com/lit/ds/symlink/ina138.pdf,x,https://www.digikey.co.nz/product-detail/en/texas-instruments/INA168NA-3K/296-36536-1-ND/4333267
+U2 ,1,OPA340NA,Package_TO_SOT_SMD:SOT-23-5,http://www.ti.com/lit/ds/symlink/opa340.pdf,x,https://www.digikey.co.nz/product-detail/en/texas-instruments/OPA340NA-3K/296-26275-1-ND/2254936
+U3 ,1,ZTX690B-ND,Package_TO_SOT_THT:TO-92L_Inline,,x,https://www.digikey.com/product-detail/en/diodes-incorporated/ZTX690B/ZTX690B-ND/92520
+U4 ,1,RT9261A-50GB,Package_TO_SOT_SMD:SOT-23-5_HandSoldering,,x,https://www.digikey.com/product-detail/en/richtek-usa-inc/RT9261A-50GB/1028-1077-1-ND/3077967
+U5 ,1,ATmega32U4-MU,Package_DFN_QFN:QFN-44-1EP_7x7mm_P0.5mm_EP5.2x5.2mm,http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7766-8-bit-AVR-ATmega16U4-32U4_Datasheet.pdf,x,https://www.digikey.com/product-detail/en/microchip-technology/ATMEGA32U4-AUR/ATMEGA32U4-AURCT-ND/3440960
+Y1 ,1,16MHz,SpiroParts:Crystal_SMD_SeikoEpson_TSX3225-4Pin_3.2x2.5mm,~,x,https://www.digikey.com/product-detail/en/epson/TSX-3225-16.0000MF09Z-AC0/SER4069CT-ND/5413938
